@@ -28,7 +28,7 @@ export default function Navbar() {
   const navLinks = [
     { name: 'Weekly Picks', href: '/' },
     { name: 'Leaderboard', href: '/leaderboard' },
-    { name: 'Rankings Room', href: '/rankingsroom' },
+    { name: 'Rankings Room', href: '/rankings' },
   ];
 
   return (

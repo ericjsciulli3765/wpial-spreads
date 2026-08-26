@@ -63,7 +63,7 @@ export default async function Home() {
           </p>
         </div>
 
-        <PicksList games={games ?? []} />
+        <PicksList games={games ?? []} userId={user.id} />
       </section>
     </main>
   );

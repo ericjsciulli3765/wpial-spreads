@@ -16,25 +16,25 @@ type Pick = {
   picked_team: string;
 };
 
-export default function PicksList({ games }: { games: Game[] }) {
+export default function PicksList({
+  games,
+  userId,
+}: {
+  games: Game[];
+  userId: string;
+}) {
   const [picks, setPicks] = useState<Record<number, string>>({});
   const [savingGame, setSavingGame] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     async function loadPicks() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        return;
-      }
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from("picks")
         .select("game_id, picked_team")
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
 
       if (error) {
         console.error("Error loading picks:", error);
@@ -51,20 +51,15 @@ export default function PicksList({ games }: { games: Game[] }) {
     }
 
     loadPicks();
-  }, []);
+  }, [userId]);
 
   async function makePick(game: Game, team: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    if (!userId) {
       setMessage("Please log in to make a pick.");
       return;
     }
 
-    const isLocked =
-      new Date(game.game_time).getTime() <= Date.now();
+    const isLocked = new Date(game.game_time).getTime() <= Date.now();
 
     if (isLocked) {
       return;
@@ -73,18 +68,16 @@ export default function PicksList({ games }: { games: Game[] }) {
     setSavingGame(game.id);
     setMessage("");
 
-    const { error } = await supabase
-      .from("picks")
-      .upsert(
-        {
-          user_id: user.id,
-          game_id: game.id,
-          picked_team: team,
-        },
-        {
-          onConflict: "user_id,game_id",
-        }
-      );
+    const { error } = await supabase.from("picks").upsert(
+      {
+        user_id: userId,
+        game_id: game.id,
+        picked_team: team,
+      },
+      {
+        onConflict: "user_id,game_id",
+      }
+    );
 
     if (error) {
       console.error("Error saving pick:", error);
@@ -112,10 +105,7 @@ export default function PicksList({ games }: { games: Game[] }) {
 
       {games?.map((game) => {
         const selectedTeam = picks[game.id];
-
-        const isLocked =
-          new Date(game.game_time).getTime() <= Date.now();
-
+        const isLocked = new Date(game.game_time).getTime() <= Date.now();
         const isSaving = savingGame === game.id;
 
         return (
@@ -165,13 +155,9 @@ export default function PicksList({ games }: { games: Game[] }) {
                     : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
                 }`}
               >
-                <span className="text-xs uppercase text-slate-500">
-                  Away
-                </span>
+                <span className="text-xs uppercase text-slate-500">Away</span>
 
-                <div className="mt-1 text-lg font-bold">
-                  {game.away_team}
-                </div>
+                <div className="mt-1 text-lg font-bold">{game.away_team}</div>
 
                 {selectedTeam === game.away_team && (
                   <div className="mt-2 text-sm font-semibold text-blue-400">
@@ -180,9 +166,7 @@ export default function PicksList({ games }: { games: Game[] }) {
                 )}
 
                 {isSaving && selectedTeam !== game.away_team && (
-                  <div className="mt-2 text-sm text-slate-400">
-                    Saving...
-                  </div>
+                  <div className="mt-2 text-sm text-slate-400">Saving...</div>
                 )}
               </button>
 
@@ -197,13 +181,9 @@ export default function PicksList({ games }: { games: Game[] }) {
                     : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
                 }`}
               >
-                <span className="text-xs uppercase text-slate-500">
-                  Home
-                </span>
+                <span className="text-xs uppercase text-slate-500">Home</span>
 
-                <div className="mt-1 text-lg font-bold">
-                  {game.home_team}
-                </div>
+                <div className="mt-1 text-lg font-bold">{game.home_team}</div>
 
                 {selectedTeam === game.home_team && (
                   <div className="mt-2 text-sm font-semibold text-blue-400">
@@ -212,9 +192,7 @@ export default function PicksList({ games }: { games: Game[] }) {
                 )}
 
                 {isSaving && selectedTeam !== game.home_team && (
-                  <div className="mt-2 text-sm text-slate-400">
-                    Saving...
-                  </div>
+                  <div className="mt-2 text-sm text-slate-400">Saving...</div>
                 )}
               </button>
             </div>

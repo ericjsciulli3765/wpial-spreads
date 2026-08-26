@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import PicksList from "./PicksList";
 
 export default async function Home() {
@@ -9,14 +10,7 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return (
-      <main className="min-h-screen bg-slate-950 p-10 text-white">
-        <h1 className="text-2xl font-bold">Please Log In</h1>
-        <p className="mt-4 text-slate-400">
-          You must be logged in to make your picks.
-        </p>
-      </main>
-    );
+    redirect("/login");
   }
 
   const { data: week, error: weekError } = await supabase

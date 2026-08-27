@@ -7,14 +7,23 @@ type PickButtonProps = {
   gameId: number;
   team: string;
   label: "Away" | "Home";
+  spread: number | null; // <--- Added spread prop
   selected?: boolean;
   onPick?: (team: string) => void;
 };
+
+// Helper to format spread signs (+ / -)
+function formatSpread(val: number | null) {
+  if (val === null || val === undefined) return "";
+  if (val > 0) return `+${val}`;
+  return `${val}`;
+}
 
 export default function PickButton({
   gameId,
   team,
   label,
+  spread,
   selected = false,
   onPick,
 }: PickButtonProps) {
@@ -35,18 +44,16 @@ export default function PickButton({
       return;
     }
 
-    const { error } = await supabase
-      .from("picks")
-      .upsert(
-        {
-          user_id: user.id,
-          game_id: gameId,
-          picked_team: team,
-        },
-        {
-          onConflict: "user_id,game_id",
-        }
-      );
+    const { error } = await supabase.from("picks").upsert(
+      {
+        user_id: user.id,
+        game_id: gameId,
+        picked_team: team,
+      },
+      {
+        onConflict: "user_id,game_id",
+      }
+    );
 
     if (error) {
       setError(error.message);
@@ -69,15 +76,19 @@ export default function PickButton({
             : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
         }`}
       >
-        <span className="text-xs uppercase text-slate-400">
-          {label}
-        </span>
+        <span className="text-xs uppercase text-slate-400">{label}</span>
 
-        <div className="mt-1 text-lg font-bold">
-          {team}
+        {/* Team Name + Spread Badge */}
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span className="text-lg font-bold text-white">{team}</span>
+          {spread !== null && (
+            <span className="rounded bg-slate-950 px-2.5 py-1 text-sm font-extrabold text-blue-400 border border-slate-700">
+              {formatSpread(spread)}
+            </span>
+          )}
         </div>
 
-        <div className="mt-2 text-sm">
+        <div className="mt-2 text-sm text-slate-300">
           {saving
             ? "Saving..."
             : selected
@@ -86,11 +97,7 @@ export default function PickButton({
         </div>
       </button>
 
-      {error && (
-        <p className="mt-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
     </div>
   );
 }

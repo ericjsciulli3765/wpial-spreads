@@ -23,8 +23,8 @@ type WeeklyRankingsData = {
 const weeklyRankingsData: WeeklyRankingsData = {
   'Week 1': {
     '6A': [
-      { rank: 1, team: 'PCC', record: '0-0', previousRank: '1' },
-      { rank: 2, team: 'NA', record: '0-0', previousRank: '2' },
+      { rank: 1, team: 'Pittsburgh Central Catholic', record: '0-0', previousRank: '1' },
+      { rank: 2, team: 'North Allegheny', record: '0-0', previousRank: '2' },
       { rank: 3, team: 'Canon-Mac', record: '0-0', previousRank: '3' },
       { rank: 4, team: 'Seneca Valley', record: '0-0', previousRank: '4' },
       { rank: 5, team: 'Norwin', record: '0-0', previousRank: '5' },

@@ -16,6 +16,13 @@ type Pick = {
   picked_team: string;
 };
 
+// Helper function to handle signs (+ / -) cleanly
+function formatSpread(spread: number | null) {
+  if (spread === null || spread === undefined) return "";
+  if (spread > 0) return `+${spread}`;
+  return `${spread}`;
+}
+
 export default function PicksList({
   games,
   userId,
@@ -108,11 +115,16 @@ export default function PicksList({
         const isLocked = new Date(game.game_time).getTime() <= Date.now();
         const isSaving = savingGame === game.id;
 
+        // Calculate dynamic spreads for both teams
+        const homeSpread = game.spread;
+        const awaySpread = game.spread !== null ? -game.spread : null;
+
         return (
           <div
             key={game.id}
             className="rounded-xl border border-slate-800 bg-slate-900 p-6"
           >
+            {/* Top Bar: Kickoff time & Lock status only */}
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm text-slate-400">
                 {new Date(game.game_time).toLocaleDateString([], {
@@ -126,24 +138,16 @@ export default function PicksList({
                 })}
               </span>
 
-              {isLocked ? (
+              {isLocked && (
                 <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400">
                   🔒 Picks Locked
-                </span>
-              ) : (
-                <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium text-blue-400">
-                  {game.home_team}{" "}
-                  {game.spread != null && (
-                    <>
-                      {game.spread > 0 ? "+" : ""}
-                      {game.spread}
-                    </>
-                  )}
                 </span>
               )}
             </div>
 
+            {/* Matchup Selection Cards */}
             <div className="grid gap-3 md:grid-cols-2">
+              {/* Away Team Button */}
               <button
                 disabled={isLocked || isSaving}
                 onClick={() => makePick(game, game.away_team)}
@@ -157,7 +161,16 @@ export default function PicksList({
               >
                 <span className="text-xs uppercase text-slate-500">Away</span>
 
-                <div className="mt-1 text-lg font-bold">{game.away_team}</div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-lg font-bold text-white">
+                    {game.away_team}
+                  </span>
+                  {awaySpread !== null && (
+                    <span className="rounded bg-slate-950 px-2.5 py-1 text-sm font-extrabold text-blue-400 border border-slate-800">
+                      {formatSpread(awaySpread)}
+                    </span>
+                  )}
+                </div>
 
                 {selectedTeam === game.away_team && (
                   <div className="mt-2 text-sm font-semibold text-blue-400">
@@ -170,6 +183,7 @@ export default function PicksList({
                 )}
               </button>
 
+              {/* Home Team Button */}
               <button
                 disabled={isLocked || isSaving}
                 onClick={() => makePick(game, game.home_team)}
@@ -183,7 +197,16 @@ export default function PicksList({
               >
                 <span className="text-xs uppercase text-slate-500">Home</span>
 
-                <div className="mt-1 text-lg font-bold">{game.home_team}</div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-lg font-bold text-white">
+                    {game.home_team}
+                  </span>
+                  {homeSpread !== null && (
+                    <span className="rounded bg-slate-950 px-2.5 py-1 text-sm font-extrabold text-blue-400 border border-slate-800">
+                      {formatSpread(homeSpread)}
+                    </span>
+                  )}
+                </div>
 
                 {selectedTeam === game.home_team && (
                   <div className="mt-2 text-sm font-semibold text-blue-400">

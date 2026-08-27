@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import PickButton from "@/app/components/PickButton";
+import PickButton from "./components/PickButton";
 
 type Game = {
   id: number;
@@ -73,7 +73,7 @@ export default function PicksList({
         const selectedTeam = picks[game.id];
         const isLocked = new Date(game.game_time).getTime() <= Date.now();
 
-        // Calculate home & away spreads
+        // Compute opposite spreads for home and away
         const homeSpread = game.spread;
         const awaySpread = game.spread !== null ? -game.spread : null;
 
@@ -105,7 +105,6 @@ export default function PicksList({
 
             {/* Matchup Selection Cards */}
             <div className="grid gap-3 md:grid-cols-2">
-              {/* Away Team Pick Button */}
               <PickButton
                 gameId={game.id}
                 team={game.away_team}
@@ -115,7 +114,6 @@ export default function PicksList({
                 onPick={(team) => handlePick(game.id, team)}
               />
 
-              {/* Home Team Pick Button */}
               <PickButton
                 gameId={game.id}
                 team={game.home_team}

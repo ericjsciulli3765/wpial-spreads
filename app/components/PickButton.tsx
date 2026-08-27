@@ -78,11 +78,11 @@ export default function PickButton({
       >
         <span className="text-xs uppercase text-slate-400">{label}</span>
 
-        {/* Team Name + Pill Badge Style */}
+        {/* Team Name + Bigger White Pill Badge */}
         <div className="mt-1 flex items-center justify-between gap-2">
           <span className="text-lg font-bold text-white">{team}</span>
           {spread !== null && (
-            <span className="rounded-full bg-blue-500/10 px-3 py-0.5 text-xs font-bold text-blue-400 border border-blue-500/20">
+            <span className="rounded-full bg-slate-900/80 px-3 py-1 text-base font-extrabold text-white border border-slate-700">
               {formatSpread(spread)}
             </span>
           )}

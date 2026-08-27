@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import PicksList from "./PicksList";
 
+export const revalidate = 0; // Forces Next.js to dynamically fetch & render the page every request
+
 export default async function Home() {
   const supabase = await createClient();
 

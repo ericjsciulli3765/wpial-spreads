@@ -7,12 +7,12 @@ type PickButtonProps = {
   gameId: number;
   team: string;
   label: "Away" | "Home";
-  spread: number | null; // <--- Added spread prop
+  spread: number | null;
   selected?: boolean;
   onPick?: (team: string) => void;
 };
 
-// Helper to format spread signs (+ / -)
+// Helper to format spread signs (+ / -) cleanly
 function formatSpread(val: number | null) {
   if (val === null || val === undefined) return "";
   if (val > 0) return `+${val}`;
@@ -78,14 +78,12 @@ export default function PickButton({
       >
         <span className="text-xs uppercase text-slate-400">{label}</span>
 
-        {/* Team Name + Spread Badge */}
+        {/* Team Name + Spread Badge (Displays N/A if spread is null/missing) */}
         <div className="mt-1 flex items-center justify-between gap-2">
           <span className="text-lg font-bold text-white">{team}</span>
-          {spread !== null && (
-            <span className="rounded bg-slate-950 px-2.5 py-1 text-sm font-extrabold text-blue-400 border border-slate-700">
-              {formatSpread(spread)}
-            </span>
-          )}
+          <span className="rounded bg-slate-950 px-2.5 py-1 text-sm font-extrabold text-blue-400 border border-slate-700">
+            {spread !== null && spread !== undefined ? formatSpread(spread) : "N/A"}
+          </span>
         </div>
 
         <div className="mt-2 text-sm text-slate-300">

@@ -18,16 +18,7 @@ export default async function LeaderboardPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 bg-slate-900">
-        <div className="mx-auto max-w-6xl px-6 py-5">
-          <h1 className="text-2xl font-bold">
-            
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-400">
-          </p>
-        </div>
-      </header>
+      
 
       <section className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">

@@ -169,16 +169,7 @@ export default function RankingsPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900">
-        <div className="mx-auto max-w-6xl px-6 py-5">
-          <h1 className="text-2xl font-bold">
-            WPIAL Football Central
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Official WPIAL Rankings & Analytics
-          </p>
-        </div>
-      </header>
+      
 
       <section className="mx-auto max-w-6xl px-6 py-10">
         {/* Title Block */}

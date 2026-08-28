@@ -7,32 +7,41 @@ import { supabase } from "@/lib/supabase";
 
 export default function Navbar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    // 1. Fetch user directly on mount
-    async function checkUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserEmail(user.email ?? null);
-      } else {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUserEmail(session?.user?.email ?? null);
+    // 1. Initial auth check
+    async function initAuth() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          setUserEmail(user.email ?? null);
+        } else {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          setUserEmail(session?.user?.email ?? null);
+        }
+      } catch (err) {
+        console.error("Auth check error:", err);
+      } finally {
+        setLoading(false);
       }
     }
 
-    checkUser();
+    initAuth();
 
-    // 2. Listen for auth changes (SIGNED_IN, SIGNED_OUT, INITIAL_SESSION)
+    // 2. Real-time auth listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUserEmail(session.user.email ?? null);
-      } else {
-        setUserEmail(null);
-      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+      setLoading(false);
     });
 
     return () => {
@@ -58,7 +67,10 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         {/* Left Side: Brand Header */}
         <div>
-          <Link href="/" className="text-xl font-bold text-white hover:text-slate-200">
+          <Link
+            href="/"
+            className="text-xl font-bold text-white hover:text-slate-200"
+          >
             2026 WPIAL Spreads Spread Picks
           </Link>
           <p className="text-xs text-slate-400">
@@ -67,7 +79,7 @@ export default function Navbar() {
         </div>
 
         {/* Navigation Links */}
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="flex items-center gap-6">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -86,10 +98,10 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right Side: Logged-in User Email & Sign Out Button */}
-        {userEmail ? (
+        {/* Right Side: User Email & Sign Out Button */}
+        {!loading && userEmail && (
           <div className="flex items-center gap-4">
-            <span className="hidden sm:inline text-xs text-slate-400">
+            <span className="hidden text-xs text-slate-400 sm:inline">
               {userEmail}
             </span>
             <button
@@ -99,25 +111,7 @@ export default function Navbar() {
               Log Out
             </button>
           </div>
-        ) : null}
-      </div>
-
-      {/* Mobile Sub-Navigation Links */}
-      <div className="flex justify-around border-t border-slate-800 bg-slate-950 px-4 py-2 md:hidden">
-        {navLinks.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-xs font-semibold transition ${
-                isActive ? "text-blue-400" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              {link.name}
-            </Link>
-          );
-        })}
+        )}
       </div>
     </header>
   );

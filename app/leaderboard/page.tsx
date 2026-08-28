@@ -1,37 +1,121 @@
 import { supabase } from "@/lib/supabase";
 
-export default async function LeaderboardPage() {
-  const { data: standings, error } = await supabase
-    .from("weekly_standings")
-    .select("*")
-    .order("winning_percentage", { ascending: false })
-    .order("wins", { ascending: false });
+type PickItem = {
+  picked_team: string;
+  is_lock?: boolean;
+  game_id: number | string;
+};
 
-  if (error) {
+type GameItem = {
+  id: number | string;
+  away_team: string;
+  home_team: string;
+  spread: number | null;
+  away_score: number | null;
+  home_score: number | null;
+};
+
+type ProfileItem = {
+  id: string;
+  display_name: string | null;
+  is_hidden?: boolean;
+};
+
+export default async function LeaderboardPage() {
+  // 1. Fetch profiles (excluding hidden ones)
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, display_name, is_hidden");
+
+  // 2. Fetch all completed games with scores
+  const { data: games, error: gamesError } = await supabase
+    .from("games")
+    .select("id, away_team, home_team, spread, away_score, home_score");
+
+  // 3. Fetch all picks
+  const { data: picks, error: picksError } = await supabase
+    .from("picks")
+    .select("user_id, game_id, picked_team, is_lock");
+
+  if (profilesError || gamesError || picksError) {
+    const errorMsg =
+      profilesError?.message || gamesError?.message || picksError?.message;
     return (
       <main className="min-h-screen bg-slate-950 p-10 text-white">
         <h1 className="text-2xl font-bold">Leaderboard Error</h1>
-        <p className="mt-4 text-red-400">{error.message}</p>
+        <p className="mt-4 text-red-400">{errorMsg}</p>
       </main>
     );
   }
 
+  // Create a quick lookup map for spread winners
+  const gameWinners: Record<string | number, string | "PUSH" | null> = {};
+
+  (games as GameItem[] | null)?.forEach((game) => {
+    if (game.away_score !== null && game.home_score !== null) {
+      const spread = game.spread ?? 0;
+      const homeTotal = game.home_score + spread;
+      if (homeTotal > game.away_score) {
+        gameWinners[game.id] = game.home_team;
+      } else if (homeTotal < game.away_score) {
+        gameWinners[game.id] = game.away_team;
+      } else {
+        gameWinners[game.id] = "PUSH";
+      }
+    } else {
+      gameWinners[game.id] = null;
+    }
+  });
+
+  // Calculate scores per user in JS
+  const standings = (profiles as ProfileItem[] | null)
+    ?.filter((p) => !p.is_hidden)
+    .map((profile) => {
+      const userPicks = (picks as (PickItem & { user_id: string })[] | null)?.filter(
+        (pk) => pk.user_id === profile.id
+      );
+
+      let wins = 0;
+      let losses = 0;
+
+      userPicks?.forEach((pick) => {
+        const winner = gameWinners[pick.game_id];
+        if (winner && winner !== "PUSH") {
+          if (pick.picked_team === winner) {
+            // Lock of the Week = 2 wins, standard pick = 1 win
+            wins += pick.is_lock ? 2 : 1;
+          } else {
+            losses += 1;
+          }
+        }
+      });
+
+      const totalDecisions = wins + losses;
+      const winningPercentage =
+        totalDecisions > 0 ? (wins / totalDecisions) * 100 : 0;
+
+      return {
+        user_id: profile.id,
+        display_name: profile.display_name || "Anonymous",
+        wins,
+        losses,
+        winning_percentage: winningPercentage,
+      };
+    })
+    .sort((a, b) => b.wins - a.wins || b.winning_percentage - a.winning_percentage);
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-
-
       <section className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
             2026 Season
           </p>
 
-          <h2 className="mt-2 text-4xl font-bold">
-            Leaderboard
-          </h2>
+          <h2 className="mt-2 text-4xl font-bold">Leaderboard</h2>
 
           <p className="mt-2 text-slate-400">
-            See how everyone is doing against the spread.
+            See how everyone is doing against the spread. (⭐ Lock wins count as 2)
           </p>
         </div>
 
@@ -47,7 +131,7 @@ export default async function LeaderboardPage() {
 
             {standings.map((player, index) => (
               <div
-                key={`${player.user_id}-${player.week_id}`}
+                key={player.user_id}
                 className="grid grid-cols-12 items-center border-b border-slate-800 px-6 py-5 last:border-b-0"
               >
                 <div className="col-span-1 text-lg font-bold text-slate-400">
@@ -55,34 +139,28 @@ export default async function LeaderboardPage() {
                 </div>
 
                 <div className="col-span-5 font-semibold">
-                  {player.display_name || "Anonymous"}
+                  {player.display_name}
                 </div>
 
                 <div className="col-span-2 text-center font-semibold">
-                  {player.wins ?? 0}
+                  {player.wins}
                 </div>
 
                 <div className="col-span-2 text-center text-slate-400">
-                  {player.losses ?? 0}
+                  {player.losses}
                 </div>
 
                 <div className="col-span-2 text-right font-bold text-blue-400">
-                  {player.winning_percentage != null
-                    ? `${Number(player.winning_percentage).toFixed(1)}%`
-                    : "0.0%"}
+                  {player.winning_percentage.toFixed(1)}%
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-10 text-center">
-            <h3 className="text-xl font-semibold">
-              No standings yet
-            </h3>
-
+            <h3 className="text-xl font-semibold">No standings yet</h3>
             <p className="mt-2 text-slate-400">
-              The leaderboard will appear here once Week 1 games are
-              completed and results are calculated.
+              The leaderboard will appear here once games are completed.
             </p>
           </div>
         )}

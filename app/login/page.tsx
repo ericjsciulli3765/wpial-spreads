@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -9,6 +10,8 @@ export default function LoginPage() {
   const [isSignup, setIsSignup] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +42,8 @@ export default function LoginPage() {
       if (error) {
         setMessage(error.message);
       } else {
-        window.location.href = "/";
+        router.push("/");
+        router.refresh();
       }
     }
 

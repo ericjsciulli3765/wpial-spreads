@@ -11,16 +11,28 @@ export default function Navbar() {
   const router = useRouter();
 
   useEffect(() => {
-    // 1. Get current active session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserEmail(session?.user?.email ?? null);
-    });
+    // 1. Fetch user directly on mount
+    async function checkUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email ?? null);
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUserEmail(session?.user?.email ?? null);
+      }
+    }
 
-    // 2. Listen for real-time auth status changes (login, logout, token refresh)
+    checkUser();
+
+    // 2. Listen for auth changes (SIGNED_IN, SIGNED_OUT, INITIAL_SESSION)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUserEmail(session.user.email ?? null);
+      } else {
+        setUserEmail(null);
+      }
     });
 
     return () => {
@@ -75,7 +87,7 @@ export default function Navbar() {
         </nav>
 
         {/* Right Side: Logged-in User Email & Sign Out Button */}
-        {userEmail && (
+        {userEmail ? (
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline text-xs text-slate-400">
               {userEmail}
@@ -87,7 +99,7 @@ export default function Navbar() {
               Log Out
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Mobile Sub-Navigation Links */}

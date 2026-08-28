@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Navbar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -12,31 +12,28 @@ export default function Navbar() {
   const router = useRouter();
 
   useEffect(() => {
-    // 1. Initial auth check
-    async function initAuth() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+    const supabase = createClient();
 
+    // 1. Initial auth check
+    async function checkAuth() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUserEmail(user.email ?? null);
         } else {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
+          const { data: { session } } = await supabase.auth.getSession();
           setUserEmail(session?.user?.email ?? null);
         }
       } catch (err) {
-        console.error("Auth check error:", err);
+        console.error("Error fetching user session:", err);
       } finally {
         setLoading(false);
       }
     }
 
-    initAuth();
+    checkAuth();
 
-    // 2. Real-time auth listener
+    // 2. Real-time auth state listener
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -50,6 +47,7 @@ export default function Navbar() {
   }, []);
 
   const handleSignOut = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     setUserEmail(null);
     router.push("/login");
@@ -98,8 +96,8 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right Side: User Email & Sign Out Button */}
-        {!loading && userEmail && (
+        {/* Right Side: Logged-in User Email & Sign Out Button */}
+        {!loading && userEmail ? (
           <div className="flex items-center gap-4">
             <span className="hidden text-xs text-slate-400 sm:inline">
               {userEmail}
@@ -111,7 +109,7 @@ export default function Navbar() {
               Log Out
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </header>
   );

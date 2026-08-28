@@ -1,103 +1,83 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
-type PickButtonProps = {
-  gameId: number;
-  team: string;
-  label: "Away" | "Home";
-  spread: number | null;
-  selected?: boolean;
-  onPick?: (team: string) => void;
-};
-
-// Helper to format spread signs (+ / -) cleanly
-function formatSpread(val: number | null) {
-  if (val === null || val === undefined) return "";
-  if (val > 0) return `+${val}`;
-  return `${val}`;
+interface PickButtonProps {
+  gameId: string;
+  teamPicked: string;
+  selectedTeam: string | null;
+  onPickSuccess: (team: string) => void;
 }
 
 export default function PickButton({
   gameId,
-  team,
-  label,
-  spread,
-  selected = false,
-  onPick,
+  teamPicked,
+  selectedTeam,
+  onPickSuccess,
 }: PickButtonProps) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  async function makePick() {
-    setSaving(true);
-    setError("");
+  const handlePick = async () => {
+    setLoading(true);
+    setErrorMsg("");
 
+    const supabase = createClient();
+
+    // 1. Get the current authenticated user session directly
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      setError("Please log in before making a pick.");
-      setSaving(false);
+    if (authError || !user) {
+      setErrorMsg("Please log in before making a pick.");
+      setLoading(false);
       return;
     }
 
+    // 2. Save or update the pick in Supabase
     const { error } = await supabase.from("picks").upsert(
       {
         user_id: user.id,
         game_id: gameId,
-        picked_team: team,
+        team_picked: teamPicked,
       },
-      {
-        onConflict: "user_id,game_id",
-      }
+      { onConflict: "user_id,game_id" }
     );
 
     if (error) {
-      setError(error.message);
-      setSaving(false);
-      return;
+      setErrorMsg("Failed to save pick. Try again.");
+    } else {
+      onPickSuccess(teamPicked);
     }
 
-    onPick?.(team);
-    setSaving(false);
-  }
+    setLoading(false);
+  };
+
+  const isSelected = selectedTeam === teamPicked;
 
   return (
     <div>
       <button
-        onClick={makePick}
-        disabled={saving}
-        className={`w-full rounded-lg border p-5 text-left transition ${
-          selected
-            ? "border-blue-500 bg-blue-600"
-            : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
+        onClick={handlePick}
+        disabled={loading}
+        className={`w-full rounded-xl p-4 text-left transition ${
+          isSelected
+            ? "bg-blue-600 text-white"
+            : "bg-slate-800 text-slate-300 hover:bg-slate-750"
         }`}
       >
-        <span className="text-xs uppercase text-slate-400">{label}</span>
-
-        {/* Team Name + Bigger White Pill Badge */}
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <span className="text-lg font-bold text-white">{team}</span>
-          {spread !== null && (
-            <span className="rounded-full bg-slate-900/80 px-3 py-1 text-base font-extrabold text-white border border-slate-700">
-              {formatSpread(spread)}
-            </span>
-          )}
-        </div>
-
-        <div className="mt-2 text-sm text-slate-300">
-          {saving
-            ? "Saving..."
-            : selected
-            ? "✓ Your Pick"
-            : "Pick this team"}
+        <div className="flex items-center justify-between">
+          <span className="font-bold">{teamPicked}</span>
+          {isSelected && <span className="text-xs font-semibold">✓ Your Pick</span>}
         </div>
       </button>
 
-      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+      {errorMsg && (
+        <p className="mt-2 text-xs text-red-500">{errorMsg}</p>
+      )}
     </div>
   );
 }

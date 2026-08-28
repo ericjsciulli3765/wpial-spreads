@@ -11,17 +11,12 @@ export default function Navbar() {
   const router = useRouter();
 
   useEffect(() => {
-    // Fetch initial user email
-    async function getUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUserEmail(user?.email ?? null);
-    }
+    // 1. Get current active session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
 
-    getUser();
-
-    // Listen for auth changes
+    // 2. Listen for real-time auth status changes (login, logout, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {

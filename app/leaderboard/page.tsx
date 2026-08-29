@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
+export const revalidate = 0; // Force Next.js to fetch updated leaderboard data on every page view
+
 type PickItem = {
   picked_team: string;
   is_lock?: boolean;
@@ -22,17 +24,17 @@ type ProfileItem = {
 };
 
 export default async function LeaderboardPage() {
-  // 1. Fetch profiles (excluding hidden ones)
+  // 1. Fetch profiles
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select("id, display_name, is_hidden");
 
-  // 2. Fetch all completed games with scores
+  // 2. Fetch games
   const { data: games, error: gamesError } = await supabase
     .from("games")
     .select("id, away_team, home_team, spread, away_score, home_score");
 
-  // 3. Fetch all picks
+  // 3. Fetch picks
   const { data: picks, error: picksError } = await supabase
     .from("picks")
     .select("user_id, game_id, picked_team, is_lock");
@@ -48,7 +50,7 @@ export default async function LeaderboardPage() {
     );
   }
 
-  // Create a quick lookup map for spread winners
+  // Pre-calculate spread winners
   const gameWinners: Record<string | number, string | "PUSH" | null> = {};
 
   (games as GameItem[] | null)?.forEach((game) => {
@@ -67,7 +69,7 @@ export default async function LeaderboardPage() {
     }
   });
 
-  // Calculate scores per user in JS
+  // Calculate user standings
   const standings = (profiles as ProfileItem[] | null)
     ?.filter((p) => !p.is_hidden)
     .map((profile) => {
@@ -82,7 +84,6 @@ export default async function LeaderboardPage() {
         const winner = gameWinners[pick.game_id];
         if (winner && winner !== "PUSH") {
           if (pick.picked_team === winner) {
-            // Lock of the Week = 2 wins, standard pick = 1 win
             wins += pick.is_lock ? 2 : 1;
           } else {
             losses += 1;
@@ -111,9 +112,7 @@ export default async function LeaderboardPage() {
           <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
             2026 Season
           </p>
-
           <h2 className="mt-2 text-4xl font-bold">Leaderboard</h2>
-
           <p className="mt-2 text-slate-400">
             See how everyone is doing against the spread. (⭐ Lock wins count as 2)
           </p>
@@ -137,19 +136,15 @@ export default async function LeaderboardPage() {
                 <div className="col-span-1 text-lg font-bold text-slate-400">
                   {index + 1}
                 </div>
-
                 <div className="col-span-5 font-semibold">
                   {player.display_name}
                 </div>
-
-                <div className="col-span-2 text-center font-semibold">
+                <div className="col-span-2 text-center font-semibold text-emerald-400">
                   {player.wins}
                 </div>
-
                 <div className="col-span-2 text-center text-slate-400">
                   {player.losses}
                 </div>
-
                 <div className="col-span-2 text-right font-bold text-blue-400">
                   {player.winning_percentage.toFixed(1)}%
                 </div>

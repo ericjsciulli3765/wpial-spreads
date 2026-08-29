@@ -9,6 +9,8 @@ type Game = {
   home_team: string;
   spread: number | null;
   game_time: string;
+  away_score?: number | null;
+  home_score?: number | null;
 };
 
 type Pick = {
@@ -37,7 +39,6 @@ export default function PicksList({
 
   const supabase = createClient();
 
-  // Load existing picks & user lock
   useEffect(() => {
     async function loadPicks() {
       if (!userId) return;
@@ -69,7 +70,6 @@ export default function PicksList({
     loadPicks();
   }, [userId]);
 
-  // Handle Team Pick
   async function makePick(game: Game, team: string) {
     if (!userId) {
       setMessage("Please log in to make a pick.");
@@ -95,7 +95,6 @@ export default function PicksList({
     );
 
     if (error) {
-      console.error("Error saving pick:", error);
       setMessage(`Could not save pick: ${error.message}`);
       setSavingGame(null);
       return;
@@ -106,11 +105,9 @@ export default function PicksList({
     setSavingGame(null);
   }
 
-  // Handle Setting / Switching Lock of the Week
   async function toggleLock(gameId: string | number) {
     if (!userId) return;
 
-    // Must make a pick first before locking
     if (!picks[gameId]) {
       setMessage("Please pick a team for this game before setting it as your Lock.");
       return;
@@ -119,7 +116,6 @@ export default function PicksList({
     setSavingGame(gameId);
     setMessage("");
 
-    // 1. Unset existing lock in DB if switching locks
     if (lockedGameId && lockedGameId !== gameId) {
       await supabase
         .from("picks")
@@ -131,7 +127,6 @@ export default function PicksList({
     const isAlreadyLock = lockedGameId === gameId;
     const newLockState = !isAlreadyLock;
 
-    // 2. Set new lock state in DB
     const { error } = await supabase
       .from("picks")
       .update({ is_lock: newLockState })
@@ -161,6 +156,11 @@ export default function PicksList({
         const isLockOf = lockedGameId === game.id;
         const isGameLocked = new Date(game.game_time).getTime() <= Date.now();
         const isSaving = savingGame === game.id;
+        const hasScores =
+          game.away_score !== null &&
+          game.home_score !== null &&
+          game.away_score !== undefined &&
+          game.home_score !== undefined;
 
         const homeSpread = game.spread;
         const awaySpread = game.spread !== null ? -game.spread : null;
@@ -175,21 +175,29 @@ export default function PicksList({
             }`}
           >
             {/* Top Bar */}
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm text-slate-400">
-                {new Date(game.game_time).toLocaleDateString([], {
-                  month: "numeric",
-                  day: "numeric",
-                  year: "numeric",
-                })}{" "}
-                {new Date(game.game_time).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </span>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-slate-400">
+                  {new Date(game.game_time).toLocaleDateString([], {
+                    month: "numeric",
+                    day: "numeric",
+                    year: "numeric",
+                  })}{" "}
+                  {new Date(game.game_time).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+
+                {/* Score Badge */}
+                {hasScores && (
+                  <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
+                    FINAL: {game.away_score} - {game.home_score}
+                  </span>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
-                {/* Lock of the Week Button */}
                 {selectedTeam && !isGameLocked && (
                   <button
                     onClick={() => toggleLock(game.id)}
@@ -204,7 +212,7 @@ export default function PicksList({
                 )}
 
                 {isGameLocked && (
-                  <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium text-slate-400">
+                  <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-400">
                     🔒 Picks Locked
                   </span>
                 )}
@@ -221,7 +229,7 @@ export default function PicksList({
                   selectedTeam === game.away_team
                     ? "border-blue-500 bg-blue-500/20"
                     : isGameLocked
-                    ? "cursor-not-allowed border-slate-800 bg-slate-900 opacity-50"
+                    ? "cursor-not-allowed border-slate-800 bg-slate-900 opacity-75"
                     : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
                 }`}
               >
@@ -251,7 +259,7 @@ export default function PicksList({
                   selectedTeam === game.home_team
                     ? "border-blue-500 bg-blue-500/20"
                     : isGameLocked
-                    ? "cursor-not-allowed border-slate-800 bg-slate-900 opacity-50"
+                    ? "cursor-not-allowed border-slate-800 bg-slate-900 opacity-75"
                     : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
                 }`}
               >

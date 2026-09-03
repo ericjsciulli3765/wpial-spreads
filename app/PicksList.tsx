@@ -239,7 +239,7 @@ export default function PicksList({
                     {game.away_team}
                   </span>
                   {awaySpread !== null && (
-                    <span className="min-w-[3.5rem] rounded-md border border-slate-700/60 bg-slate-900/90 px-2.5 py-1 text-center font-mono text-xs font-bold tracking-tight text-slate-200 shadow-inner">
+                    <span className="min-w-[3.5rem] rounded-md border border-slate-700/60 bg-slate-900/90 px-2.5 py-1 text-center font-mono text-base font-bold tracking-tight text-slate-200 shadow-inner">
                       {formatSpread(awaySpread)}
                     </span>
                   )}
@@ -269,7 +269,7 @@ export default function PicksList({
                     {game.home_team}
                   </span>
                   {homeSpread !== null && (
-                    <span className="min-w-[3.5rem] rounded-md border border-slate-700/60 bg-slate-900/90 px-2.5 py-1 text-center font-mono text-xs font-bold tracking-tight text-slate-200 shadow-inner">
+                    <span className="min-w-[3.5rem] rounded-md border border-slate-700/60 bg-slate-900/90 px-2.5 py-1 text-center font-mono text-base font-bold tracking-tight text-slate-200 shadow-inner">
                       {formatSpread(homeSpread)}
                     </span>
                   )}

@@ -98,7 +98,7 @@ export default function LeaderboardPage() {
   const filteredGames =
     selectedWeek === "ALL"
       ? games
-      : games.filter((g) => g.week === Number(selectedWeek));
+      : games.filter((g) => Number(g.week) === Number(selectedWeek));
 
   // Pre-calculate spread winners for filtered games
   const gameWinners: Record<string | number, string | "PUSH" | null> = {};
@@ -119,15 +119,16 @@ export default function LeaderboardPage() {
     }
   });
 
-  // Calculate user standings
-  const validGameIds = new Set(filteredGames.map((g) => g.id));
+  // Force String IDs in Set to guarantee exact type matching across string/number IDs
+  const validGameIds = new Set(filteredGames.map((g) => String(g.id)));
 
   const standings = profiles
     .filter((p) => !p.is_hidden)
     .map((profile) => {
       // Get user picks ONLY for games in the active week filter
       const userPicks = picks.filter(
-        (pk) => pk.user_id === profile.id && validGameIds.has(pk.game_id)
+        (pk) =>
+          pk.user_id === profile.id && validGameIds.has(String(pk.game_id))
       );
 
       let wins = 0;

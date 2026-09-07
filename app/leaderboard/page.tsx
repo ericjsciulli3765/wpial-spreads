@@ -79,8 +79,8 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 p-10 text-white flex items-center justify-center">
-        <p className="text-slate-400 font-medium">Loading standings...</p>
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 p-10 text-white">
+        <p className="font-medium text-slate-400">Loading standings...</p>
       </main>
     );
   }
@@ -120,10 +120,15 @@ export default function LeaderboardPage() {
   });
 
   // Calculate user standings
+  const validGameIds = new Set(filteredGames.map((g) => g.id));
+
   const standings = profiles
     .filter((p) => !p.is_hidden)
     .map((profile) => {
-      const userPicks = picks.filter((pk) => pk.user_id === profile.id);
+      // Get user picks ONLY for games in the active week filter
+      const userPicks = picks.filter(
+        (pk) => pk.user_id === profile.id && validGameIds.has(pk.game_id)
+      );
 
       let wins = 0;
       let losses = 0;
@@ -158,7 +163,7 @@ export default function LeaderboardPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
               2026 Season
@@ -170,8 +175,11 @@ export default function LeaderboardPage() {
           </div>
 
           {/* Week Filter Dropdown */}
-          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg p-2">
-            <label htmlFor="week-select" className="text-sm font-medium text-slate-400 pl-2">
+          <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 p-2">
+            <label
+              htmlFor="week-select"
+              className="pl-2 text-sm font-medium text-slate-400"
+            >
               Filter:
             </label>
             <select

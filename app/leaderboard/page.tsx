@@ -1,15 +1,18 @@
-import { supabase } from "@/lib/supabase";
+"use client";
 
-export const revalidate = 0; // Force Next.js to fetch updated leaderboard data on every page view
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type PickItem = {
   picked_team: string;
   is_lock?: boolean;
   game_id: number | string;
+  user_id: string;
 };
 
 type GameItem = {
   id: number | string;
+  week: number;
   away_team: string;
   home_team: string;
   spread: number | null;
@@ -23,25 +26,66 @@ type ProfileItem = {
   is_hidden?: boolean;
 };
 
-export default async function LeaderboardPage() {
-  // 1. Fetch profiles
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, display_name, is_hidden");
+export default function LeaderboardPage() {
+  const [profiles, setProfiles] = useState<ProfileItem[]>([]);
+  const [games, setGames] = useState<GameItem[]>([]);
+  const [picks, setPicks] = useState<PickItem[]>([]);
+  const [weeks, setWeeks] = useState<number[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState<string>("ALL");
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // 2. Fetch games
-  const { data: games, error: gamesError } = await supabase
-    .from("games")
-    .select("id, away_team, home_team, spread, away_score, home_score");
+  const supabase = createClient();
 
-  // 3. Fetch picks
-  const { data: picks, error: picksError } = await supabase
-    .from("picks")
-    .select("user_id, game_id, picked_team, is_lock");
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
 
-  if (profilesError || gamesError || picksError) {
-    const errorMsg =
-      profilesError?.message || gamesError?.message || picksError?.message;
+      const [profilesRes, gamesRes, picksRes] = await Promise.all([
+        supabase.from("profiles").select("id, display_name, is_hidden"),
+        supabase
+          .from("games")
+          .select("id, week, away_team, home_team, spread, away_score, home_score"),
+        supabase.from("picks").select("user_id, game_id, picked_team, is_lock"),
+      ]);
+
+      if (profilesRes.error || gamesRes.error || picksRes.error) {
+        setErrorMsg(
+          profilesRes.error?.message ||
+            gamesRes.error?.message ||
+            picksRes.error?.message ||
+            "Error loading leaderboard data."
+        );
+        setLoading(false);
+        return;
+      }
+
+      const fetchedGames = (gamesRes.data as GameItem[]) || [];
+      setProfiles((profilesRes.data as ProfileItem[]) || []);
+      setGames(fetchedGames);
+      setPicks((picksRes.data as PickItem[]) || []);
+
+      // Extract unique week numbers dynamically and sort them
+      const uniqueWeeks = Array.from(
+        new Set(fetchedGames.map((g) => g.week).filter(Boolean))
+      ).sort((a, b) => a - b);
+
+      setWeeks(uniqueWeeks);
+      setLoading(false);
+    }
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-950 p-10 text-white flex items-center justify-center">
+        <p className="text-slate-400 font-medium">Loading standings...</p>
+      </main>
+    );
+  }
+
+  if (errorMsg) {
     return (
       <main className="min-h-screen bg-slate-950 p-10 text-white">
         <h1 className="text-2xl font-bold">Leaderboard Error</h1>
@@ -50,10 +94,16 @@ export default async function LeaderboardPage() {
     );
   }
 
-  // Pre-calculate spread winners
+  // Filter games based on dropdown selection
+  const filteredGames =
+    selectedWeek === "ALL"
+      ? games
+      : games.filter((g) => g.week === Number(selectedWeek));
+
+  // Pre-calculate spread winners for filtered games
   const gameWinners: Record<string | number, string | "PUSH" | null> = {};
 
-  (games as GameItem[] | null)?.forEach((game) => {
+  filteredGames.forEach((game) => {
     if (game.away_score !== null && game.home_score !== null) {
       const spread = game.spread ?? 0;
       const homeTotal = game.home_score + spread;
@@ -70,17 +120,15 @@ export default async function LeaderboardPage() {
   });
 
   // Calculate user standings
-  const standings = (profiles as ProfileItem[] | null)
-    ?.filter((p) => !p.is_hidden)
+  const standings = profiles
+    .filter((p) => !p.is_hidden)
     .map((profile) => {
-      const userPicks = (picks as (PickItem & { user_id: string })[] | null)?.filter(
-        (pk) => pk.user_id === profile.id
-      );
+      const userPicks = picks.filter((pk) => pk.user_id === profile.id);
 
       let wins = 0;
       let losses = 0;
 
-      userPicks?.forEach((pick) => {
+      userPicks.forEach((pick) => {
         const winner = gameWinners[pick.game_id];
         if (winner && winner !== "PUSH") {
           if (pick.picked_team === winner) {
@@ -103,19 +151,43 @@ export default async function LeaderboardPage() {
         winning_percentage: winningPercentage,
       };
     })
-    .sort((a, b) => b.wins - a.wins || b.winning_percentage - a.winning_percentage);
+    .sort(
+      (a, b) => b.wins - a.wins || b.winning_percentage - a.winning_percentage
+    );
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
-            2026 Season
-          </p>
-          <h2 className="mt-2 text-4xl font-bold">Leaderboard</h2>
-          <p className="mt-2 text-slate-400">
-            See how everyone is doing against the spread. (⭐ Lock wins count as 2)
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
+              2026 Season
+            </p>
+            <h2 className="mt-2 text-4xl font-bold">Leaderboard</h2>
+            <p className="mt-2 text-slate-400">
+              See how everyone is doing against the spread. (⭐ Lock wins count as 2)
+            </p>
+          </div>
+
+          {/* Week Filter Dropdown */}
+          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg p-2">
+            <label htmlFor="week-select" className="text-sm font-medium text-slate-400 pl-2">
+              Filter:
+            </label>
+            <select
+              id="week-select"
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(e.target.value)}
+              className="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">Season Total</option>
+              {weeks.map((weekNum) => (
+                <option key={weekNum} value={weekNum}>
+                  Week {weekNum}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {standings && standings.length > 0 ? (

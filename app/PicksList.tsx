@@ -8,22 +8,16 @@ type Game = {
   away_team: string;
   home_team: string;
   spread: number | null;
-  game_time: string;
-  away_score?: number | null;
-  home_score?: number | null;
+  away_score: number | null;
+  home_score: number | null;
+  game_time?: string;
 };
 
-type Pick = {
+type PickItem = {
   game_id: number | string;
   picked_team: string;
   is_lock?: boolean;
 };
-
-function formatSpread(spread: number | null) {
-  if (spread === null || spread === undefined) return "";
-  if (spread > 0) return `+${spread}`;
-  return `${spread}`;
-}
 
 export default function PicksList({
   games,
@@ -32,255 +26,243 @@ export default function PicksList({
   games: Game[];
   userId: string;
 }) {
-  const [picks, setPicks] = useState<Record<string | number, string>>({});
-  const [lockedGameId, setLockedGameId] = useState<string | number | null>(null);
-  const [savingGame, setSavingGame] = useState<string | number | null>(null);
-  const [message, setMessage] = useState("");
-
+  const [picks, setPicks] = useState<Record<string, PickItem>>({});
+  const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
     async function loadPicks() {
-      if (!userId) return;
-
       const { data, error } = await supabase
         .from("picks")
         .select("game_id, picked_team, is_lock")
         .eq("user_id", userId);
 
-      if (error) {
-        console.error("Error loading picks:", error);
-        return;
+      if (!error && data) {
+        const pickMap: Record<string, PickItem> = {};
+        data.forEach((pk) => {
+          pickMap[String(pk.game_id)] = pk;
+        });
+        setPicks(pickMap);
       }
-
-      const savedPicks: Record<string | number, string> = {};
-      let currentLock: string | number | null = null;
-
-      (data as Pick[] | null)?.forEach((pick: Pick) => {
-        savedPicks[pick.game_id] = pick.picked_team;
-        if (pick.is_lock) {
-          currentLock = pick.game_id;
-        }
-      });
-
-      setPicks(savedPicks);
-      setLockedGameId(currentLock);
+      setLoading(false);
     }
 
     loadPicks();
-  }, [userId]);
+  }, [userId, supabase]);
 
-  async function makePick(game: Game, team: string) {
-    if (!userId) {
-      setMessage("Please log in to make a pick.");
-      return;
+  // Helper: Calculate spread winner for completed games
+  const getSpreadWinner = (game: Game): string | "PUSH" | null => {
+    if (game.away_score === null || game.home_score === null) return null;
+
+    const spread = game.spread ?? 0;
+    const homeTotal = game.home_score + spread;
+
+    if (homeTotal > game.away_score) return game.home_team;
+    if (homeTotal < game.away_score) return game.away_team;
+    return "PUSH";
+  };
+
+  // Helper: Get button container styling based on game outcome & user pick
+  const getButtonStyle = (game: Game, teamName: string) => {
+    const userPick = picks[String(game.id)];
+    const isPicked = userPick?.picked_team === teamName;
+    const winner = getSpreadWinner(game);
+
+    // If game isn't finished yet
+    if (!winner) {
+      if (isPicked) {
+        return "bg-blue-600/30 border-blue-500 text-white font-semibold ring-2 ring-blue-500/50";
+      }
+      return "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700";
     }
 
-    const isGameLocked = new Date(game.game_time).getTime() <= Date.now();
-    if (isGameLocked) return;
+    // If game is completed
+    if (isPicked) {
+      if (winner === "PUSH") {
+        return "bg-amber-500/20 border-amber-500 text-amber-300 font-bold";
+      }
+      if (winner === teamName) {
+        return "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold shadow-lg shadow-emerald-500/10";
+      }
+      return "bg-rose-500/20 border-rose-500 text-rose-400 font-bold";
+    }
 
-    setSavingGame(game.id);
-    setMessage("");
+    return "bg-slate-900/50 border-slate-800 text-slate-500 opacity-60";
+  };
 
-    const isCurrentLock = lockedGameId === game.id;
+  const handleSelectTeam = async (gameId: number | string, team: string) => {
+    const isGameFinished =
+      games.find((g) => String(g.id) === String(gameId))?.away_score !== null;
 
-    const { error } = await supabase.from("picks").upsert(
-      {
-        user_id: userId,
-        game_id: game.id,
+    if (isGameFinished) return; // Prevent changing picks after game finishes
+
+    const currentLock = picks[String(gameId)]?.is_lock || false;
+
+    // Optimistic UI update
+    setPicks((prev) => ({
+      ...prev,
+      [String(gameId)]: {
+        game_id: gameId,
         picked_team: team,
-        is_lock: isCurrentLock,
+        is_lock: currentLock,
       },
-      { onConflict: "user_id,game_id" }
-    );
+    }));
 
-    if (error) {
-      setMessage(`Could not save pick: ${error.message}`);
-      setSavingGame(null);
-      return;
-    }
+    await supabase.from("picks").upsert({
+      user_id: userId,
+      game_id: gameId,
+      picked_team: team,
+      is_lock: currentLock,
+    });
+  };
 
-    setPicks((current) => ({ ...current, [game.id]: team }));
-    setMessage("Pick saved!");
-    setSavingGame(null);
-  }
+  const handleToggleLock = async (gameId: number | string) => {
+    const currentPick = picks[String(gameId)];
+    if (!currentPick?.picked_team) return;
 
-  async function toggleLock(gameId: string | number) {
-    if (!userId) return;
+    const isGameFinished =
+      games.find((g) => String(g.id) === String(gameId))?.away_score !== null;
 
-    if (!picks[gameId]) {
-      setMessage("Please pick a team for this game before setting it as your Lock.");
-      return;
-    }
+    if (isGameFinished) return;
 
-    setSavingGame(gameId);
-    setMessage("");
+    const newLockState = !currentPick.is_lock;
 
-    if (lockedGameId && lockedGameId !== gameId) {
+    // Remove lock from any other pick first (only 1 Lock per user)
+    const updatedPicks = { ...picks };
+    Object.keys(updatedPicks).forEach((key) => {
+      if (updatedPicks[key].is_lock) {
+        updatedPicks[key] = { ...updatedPicks[key], is_lock: false };
+      }
+    });
+
+    updatedPicks[String(gameId)] = {
+      ...currentPick,
+      is_lock: newLockState,
+    };
+
+    setPicks(updatedPicks);
+
+    // Update database
+    await supabase
+      .from("picks")
+      .update({ is_lock: false })
+      .eq("user_id", userId);
+
+    if (newLockState) {
       await supabase
         .from("picks")
-        .update({ is_lock: false })
+        .update({ is_lock: true })
         .eq("user_id", userId)
-        .eq("game_id", lockedGameId);
+        .eq("game_id", gameId);
     }
+  };
 
-    const isAlreadyLock = lockedGameId === gameId;
-    const newLockState = !isAlreadyLock;
-
-    const { error } = await supabase
-      .from("picks")
-      .update({ is_lock: newLockState })
-      .eq("user_id", userId)
-      .eq("game_id", gameId);
-
-    if (error) {
-      setMessage("Could not update Lock of the Week.");
-    } else {
-      setLockedGameId(newLockState ? gameId : null);
-      setMessage(newLockState ? "⭐ Lock of the Week set!" : "Lock removed.");
-    }
-
-    setSavingGame(null);
+  if (loading) {
+    return <p className="text-slate-400">Loading your picks...</p>;
   }
 
   return (
-    <div className="space-y-4">
-      {message && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-300">
-          {message}
-        </div>
-      )}
-
-      {games?.map((game: Game) => {
-        const selectedTeam = picks[game.id];
-        const isLockOf = lockedGameId === game.id;
-        const isGameLocked = new Date(game.game_time).getTime() <= Date.now();
-        const isSaving = savingGame === game.id;
-        const hasScores =
-          game.away_score !== null &&
-          game.home_score !== null &&
-          game.away_score !== undefined &&
-          game.home_score !== undefined;
-
-        const homeSpread = game.spread;
-        const awaySpread = game.spread !== null ? -game.spread : null;
+    <div className="space-y-6">
+      {games.map((game) => {
+        const userPick = picks[String(game.id)];
+        const winner = getSpreadWinner(game);
+        const isFinished = game.away_score !== null && game.home_score !== null;
 
         return (
           <div
             key={game.id}
-            className={`rounded-xl border p-6 transition ${
-              isLockOf
-                ? "border-amber-500/50 bg-slate-900/90 shadow-lg shadow-amber-500/5"
-                : "border-slate-800 bg-slate-900"
-            }`}
+            className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-md"
           >
-            {/* Top Bar */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-slate-400">
-                  {new Date(game.game_time).toLocaleDateString([], {
-                    month: "numeric",
-                    day: "numeric",
-                    year: "numeric",
-                  })}{" "}
-                  {new Date(game.game_time).toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+            {/* Header: Spread and Scores */}
+            <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
+              <span>
+                Spread:{" "}
+                <strong className="text-slate-200">
+                  {game.spread !== null
+                    ? game.spread > 0
+                      ? `+${game.spread}`
+                      : game.spread
+                    : "PK"}
+                </strong>
+              </span>
+
+              {isFinished ? (
+                <span className="font-mono text-sm font-bold text-slate-200">
+                  Final: {game.away_team} {game.away_score} - {game.home_score}{" "}
+                  {game.home_team}
                 </span>
-
-                {/* Score Badge */}
-                {hasScores && (
-                  <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
-                    FINAL: {game.away_score} - {game.home_score}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {selectedTeam && !isGameLocked && (
-                  <button
-                    onClick={() => toggleLock(game.id)}
-                    className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
-                      isLockOf
-                        ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
-                        : "border border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                    }`}
-                  >
-                    {isLockOf ? "🔒 LOCK OF THE WEEK" : "⭐ Set as Lock"}
-                  </button>
-                )}
-
-                {isGameLocked && (
-                  <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-400">
-                    🔒 Picks Locked
-                  </span>
-                )}
-              </div>
+              ) : (
+                <span className="text-slate-500">Upcoming</span>
+              )}
             </div>
 
-            {/* Matchup Selection Cards */}
-            <div className="grid gap-3 md:grid-cols-2">
+            {/* Team Pick Options */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Away Team */}
               <button
-                disabled={isGameLocked || isSaving}
-                onClick={() => makePick(game, game.away_team)}
-                className={`rounded-lg border p-5 text-left transition ${
-                  selectedTeam === game.away_team
-                    ? "border-blue-500 bg-blue-500/20"
-                    : isGameLocked
-                    ? "cursor-not-allowed border-slate-800 bg-slate-900 opacity-75"
-                    : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
-                }`}
+                disabled={isFinished}
+                onClick={() => handleSelectTeam(game.id, game.away_team)}
+                className={`flex items-center justify-between rounded-lg border p-4 text-left transition-all ${getButtonStyle(
+                  game,
+                  game.away_team
+                )}`}
               >
-                <span className="text-xs uppercase text-slate-500">Away</span>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-lg font-bold text-white">
-                    {game.away_team}
+                <span className="font-semibold">{game.away_team}</span>
+
+                {userPick?.picked_team === game.away_team && (
+                  <span className="rounded-md bg-slate-950/60 px-2.5 py-1 text-xs font-bold uppercase tracking-wider">
+                    {winner
+                      ? winner === "PUSH"
+                        ? "PUSH"
+                        : winner === game.away_team
+                        ? "WIN (+1)"
+                        : "LOSS"
+                      : "PICKED"}
                   </span>
-                  {awaySpread !== null && (
-                    <span className="min-w-[3.5rem] rounded-md border border-slate-700/60 bg-slate-900/90 px-2.5 py-1 text-center font-mono text-base font-bold tracking-tight text-slate-200 shadow-inner">
-                      {formatSpread(awaySpread)}
-                    </span>
-                  )}
-                </div>
-                {selectedTeam === game.away_team && (
-                  <div className="mt-2 text-sm font-semibold text-blue-400">
-                    ✓ Your Pick {isLockOf && "⭐ (LOCK)"}
-                  </div>
                 )}
               </button>
 
               {/* Home Team */}
               <button
-                disabled={isGameLocked || isSaving}
-                onClick={() => makePick(game, game.home_team)}
-                className={`rounded-lg border p-5 text-left transition ${
-                  selectedTeam === game.home_team
-                    ? "border-blue-500 bg-blue-500/20"
-                    : isGameLocked
-                    ? "cursor-not-allowed border-slate-800 bg-slate-900 opacity-75"
-                    : "border-slate-700 bg-slate-800 hover:border-blue-500 hover:bg-slate-700"
-                }`}
+                disabled={isFinished}
+                onClick={() => handleSelectTeam(game.id, game.home_team)}
+                className={`flex items-center justify-between rounded-lg border p-4 text-left transition-all ${getButtonStyle(
+                  game,
+                  game.home_team
+                )}`}
               >
-                <span className="text-xs uppercase text-slate-500">Home</span>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-lg font-bold text-white">
-                    {game.home_team}
+                <span className="font-semibold">{game.home_team}</span>
+
+                {userPick?.picked_team === game.home_team && (
+                  <span className="rounded-md bg-slate-950/60 px-2.5 py-1 text-xs font-bold uppercase tracking-wider">
+                    {winner
+                      ? winner === "PUSH"
+                        ? "PUSH"
+                        : winner === game.home_team
+                        ? "WIN (+1)"
+                        : "LOSS"
+                      : "PICKED"}
                   </span>
-                  {homeSpread !== null && (
-                    <span className="min-w-[3.5rem] rounded-md border border-slate-700/60 bg-slate-900/90 px-2.5 py-1 text-center font-mono text-base font-bold tracking-tight text-slate-200 shadow-inner">
-                      {formatSpread(homeSpread)}
-                    </span>
-                  )}
-                </div>
-                {selectedTeam === game.home_team && (
-                  <div className="mt-2 text-sm font-semibold text-blue-400">
-                    ✓ Your Pick {isLockOf && "⭐ (LOCK)"}
-                  </div>
                 )}
               </button>
             </div>
+
+            {/* Lock of the Week Button */}
+            {userPick?.picked_team && (
+              <div className="mt-4 flex items-center justify-end">
+                <button
+                  disabled={isFinished}
+                  onClick={() => handleToggleLock(game.id)}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                    userPick.is_lock
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                      : "bg-slate-800 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  ⭐ {userPick.is_lock ? "Lock of the Week" : "Set as Lock"}
+                </button>
+              </div>
+            )}
           </div>
         );
       })}

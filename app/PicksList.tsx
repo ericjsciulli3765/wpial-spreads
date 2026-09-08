@@ -65,8 +65,7 @@ export default function PicksList({
   // Helper: Format team spread display (+6.5, -6.5, or PK)
   const getTeamSpread = (game: Game, isHome: boolean) => {
     if (game.spread === null || game.spread === 0) return "PK";
-    
-    // Spread in DB is from home team perspective
+
     const teamSpread = isHome ? game.spread : -game.spread;
     return teamSpread > 0 ? `+${teamSpread}` : `${teamSpread}`;
   };
@@ -184,9 +183,7 @@ export default function PicksList({
           >
             {/* Header: Scores or Game Status */}
             <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
-              <span className="text-slate-400 font-semibold">
-                Matchup
-              </span>
+              <span className="font-semibold text-slate-400">Matchup</span>
 
               {isFinished ? (
                 <span className="font-mono text-sm font-bold text-slate-200">
@@ -259,20 +256,29 @@ export default function PicksList({
               </button>
             </div>
 
-            {/* Lock of the Week Button */}
+            {/* Lock Designation / Lock Toggle Section */}
             {userPick?.picked_team && (
               <div className="mt-4 flex items-center justify-end">
-                <button
-                  disabled={isFinished}
-                  onClick={() => handleToggleLock(game.id)}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                    userPick.is_lock
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
-                      : "bg-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  ⭐ {userPick.is_lock ? "Lock of the Week" : "Set as Lock"}
-                </button>
+                {isFinished ? (
+                  // Display static badge if this game was picked as the Lock
+                  userPick.is_lock && (
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400">
+                      ⭐ Lock of the Week
+                    </span>
+                  )
+                ) : (
+                  // Interactive button before the game finishes
+                  <button
+                    onClick={() => handleToggleLock(game.id)}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                      userPick.is_lock
+                        ? "border border-amber-500/50 bg-amber-500/20 text-amber-400"
+                        : "bg-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    ⭐ {userPick.is_lock ? "Lock of the Week" : "Set as Lock"}
+                  </button>
+                )}
               </div>
             )}
           </div>

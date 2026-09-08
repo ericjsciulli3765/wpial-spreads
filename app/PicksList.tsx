@@ -219,7 +219,7 @@ export default function PicksList({
                       ? winner === "PUSH"
                         ? "PUSH"
                         : winner === game.away_team
-                        ? "WIN (+1)"
+                        ? "WIN"
                         : "LOSS"
                       : "PICKED"}
                   </span>
@@ -248,7 +248,7 @@ export default function PicksList({
                       ? winner === "PUSH"
                         ? "PUSH"
                         : winner === game.home_team
-                        ? "WIN (+1)"
+                        ? "WIN"
                         : "LOSS"
                       : "PICKED"}
                   </span>
@@ -260,14 +260,12 @@ export default function PicksList({
             {userPick?.picked_team && (
               <div className="mt-4 flex items-center justify-end">
                 {isFinished ? (
-                  // Display static badge if this game was picked as the Lock
                   userPick.is_lock && (
                     <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400">
                       ⭐ Lock of the Week
                     </span>
                   )
                 ) : (
-                  // Interactive button before the game finishes
                   <button
                     onClick={() => handleToggleLock(game.id)}
                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${

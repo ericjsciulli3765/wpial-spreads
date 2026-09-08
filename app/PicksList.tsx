@@ -62,6 +62,15 @@ export default function PicksList({
     return "PUSH";
   };
 
+  // Helper: Format team spread display (+6.5, -6.5, or PK)
+  const getTeamSpread = (game: Game, isHome: boolean) => {
+    if (game.spread === null || game.spread === 0) return "PK";
+    
+    // Spread in DB is from home team perspective
+    const teamSpread = isHome ? game.spread : -game.spread;
+    return teamSpread > 0 ? `+${teamSpread}` : `${teamSpread}`;
+  };
+
   // Helper: Get button container styling based on game outcome & user pick
   const getButtonStyle = (game: Game, teamName: string) => {
     const userPick = picks[String(game.id)];
@@ -94,11 +103,10 @@ export default function PicksList({
     const isGameFinished =
       games.find((g) => String(g.id) === String(gameId))?.away_score !== null;
 
-    if (isGameFinished) return; // Prevent changing picks after game finishes
+    if (isGameFinished) return;
 
     const currentLock = picks[String(gameId)]?.is_lock || false;
 
-    // Optimistic UI update
     setPicks((prev) => ({
       ...prev,
       [String(gameId)]: {
@@ -127,7 +135,6 @@ export default function PicksList({
 
     const newLockState = !currentPick.is_lock;
 
-    // Remove lock from any other pick first (only 1 Lock per user)
     const updatedPicks = { ...picks };
     Object.keys(updatedPicks).forEach((key) => {
       if (updatedPicks[key].is_lock) {
@@ -142,7 +149,6 @@ export default function PicksList({
 
     setPicks(updatedPicks);
 
-    // Update database
     await supabase
       .from("picks")
       .update({ is_lock: false })
@@ -168,22 +174,18 @@ export default function PicksList({
         const winner = getSpreadWinner(game);
         const isFinished = game.away_score !== null && game.home_score !== null;
 
+        const awaySpreadStr = getTeamSpread(game, false);
+        const homeSpreadStr = getTeamSpread(game, true);
+
         return (
           <div
             key={game.id}
             className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-md"
           >
-            {/* Header: Spread and Scores */}
+            {/* Header: Scores or Game Status */}
             <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
-              <span>
-                Spread:{" "}
-                <strong className="text-slate-200">
-                  {game.spread !== null
-                    ? game.spread > 0
-                      ? `+${game.spread}`
-                      : game.spread
-                    : "PK"}
-                </strong>
+              <span className="text-slate-400 font-semibold">
+                Matchup
               </span>
 
               {isFinished ? (
@@ -196,9 +198,9 @@ export default function PicksList({
               )}
             </div>
 
-            {/* Team Pick Options */}
+            {/* Team Pick Options with Spreads */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {/* Away Team */}
+              {/* Away Team Button */}
               <button
                 disabled={isFinished}
                 onClick={() => handleSelectTeam(game.id, game.away_team)}
@@ -207,7 +209,12 @@ export default function PicksList({
                   game.away_team
                 )}`}
               >
-                <span className="font-semibold">{game.away_team}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{game.away_team}</span>
+                  <span className="text-sm font-bold text-slate-400">
+                    ({awaySpreadStr})
+                  </span>
+                </div>
 
                 {userPick?.picked_team === game.away_team && (
                   <span className="rounded-md bg-slate-950/60 px-2.5 py-1 text-xs font-bold uppercase tracking-wider">
@@ -222,7 +229,7 @@ export default function PicksList({
                 )}
               </button>
 
-              {/* Home Team */}
+              {/* Home Team Button */}
               <button
                 disabled={isFinished}
                 onClick={() => handleSelectTeam(game.id, game.home_team)}
@@ -231,7 +238,12 @@ export default function PicksList({
                   game.home_team
                 )}`}
               >
-                <span className="font-semibold">{game.home_team}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{game.home_team}</span>
+                  <span className="text-sm font-bold text-slate-400">
+                    ({homeSpreadStr})
+                  </span>
+                </div>
 
                 {userPick?.picked_team === game.home_team && (
                   <span className="rounded-md bg-slate-950/60 px-2.5 py-1 text-xs font-bold uppercase tracking-wider">

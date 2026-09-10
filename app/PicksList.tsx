@@ -28,6 +28,7 @@ export default function PicksList({
 }) {
   const [picks, setPicks] = useState<Record<string, PickItem>>({});
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date()); // Track current time
   const supabase = createClient();
 
   useEffect(() => {
@@ -49,6 +50,12 @@ export default function PicksList({
 
     loadPicks();
   }, [userId, supabase]);
+
+  // Update currentTime every minute to keep lock checks accurate
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Helper: Calculate spread winner for completed games
   const getSpreadWinner = (game: Game): string | "PUSH" | null => {
@@ -76,15 +83,18 @@ export default function PicksList({
     const isPicked = userPick?.picked_team === teamName;
     const winner = getSpreadWinner(game);
 
-    // If game isn't finished yet
-    if (!winner) {
+    // Game is finished/locked
+    const kickoff = game.game_time ? new Date(game.game_time) : null;
+    const isPastKickoff = kickoff && currentTime >= kickoff;
+
+    if (!winner && !isPastKickoff) {
       if (isPicked) {
         return "bg-blue-600/30 border-blue-500 text-white font-semibold ring-2 ring-blue-500/50";
       }
       return "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700";
     }
 
-    // If game is completed
+    // If game is completed or past kickoff
     if (isPicked) {
       if (winner === "PUSH") {
         return "bg-amber-500/20 border-amber-500 text-amber-300 font-bold";
@@ -92,17 +102,23 @@ export default function PicksList({
       if (winner === teamName) {
         return "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold shadow-lg shadow-emerald-500/10";
       }
-      return "bg-rose-500/20 border-rose-500 text-rose-400 font-bold";
+      if (winner) {
+        return "bg-rose-500/20 border-rose-500 text-rose-400 font-bold";
+      }
+      // Picked, but game past kickoff and no winner yet
+      return "bg-blue-600/20 border-blue-500 text-white font-semibold opacity-80";
     }
 
     return "bg-slate-900/50 border-slate-800 text-slate-500 opacity-60";
   };
 
   const handleSelectTeam = async (gameId: number | string, team: string) => {
-    const isGameFinished =
-      games.find((g) => String(g.id) === String(gameId))?.away_score !== null;
+    const game = games.find((g) => String(g.id) === String(gameId));
+    const kickoff = game?.game_time ? new Date(game.game_time) : null;
+    const isPastKickoff = kickoff && currentTime >= kickoff;
 
-    if (isGameFinished) return;
+    // Prevent changing picks after kickoff
+    if (isPastKickoff || game?.away_score !== null) return;
 
     const currentLock = picks[String(gameId)]?.is_lock || false;
 
@@ -127,10 +143,12 @@ export default function PicksList({
     const currentPick = picks[String(gameId)];
     if (!currentPick?.picked_team) return;
 
-    const isGameFinished =
-      games.find((g) => String(g.id) === String(gameId))?.away_score !== null;
+    const game = games.find((g) => String(g.id) === String(gameId));
+    const kickoff = game?.game_time ? new Date(game.game_time) : null;
+    const isPastKickoff = kickoff && currentTime >= kickoff;
 
-    if (isGameFinished) return;
+    // Prevent changing lock state after kickoff
+    if (isPastKickoff || game?.away_score !== null) return;
 
     const newLockState = !currentPick.is_lock;
 
@@ -171,7 +189,9 @@ export default function PicksList({
       {games.map((game) => {
         const userPick = picks[String(game.id)];
         const winner = getSpreadWinner(game);
-        const isFinished = game.away_score !== null && game.home_score !== null;
+        const kickoff = game.game_time ? new Date(game.game_time) : null;
+        const isPastKickoff = kickoff && currentTime >= kickoff;
+        const isLocked = isPastKickoff || game.away_score !== null;
 
         const awaySpreadStr = getTeamSpread(game, false);
         const homeSpreadStr = getTeamSpread(game, true);
@@ -185,11 +205,13 @@ export default function PicksList({
             <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
               <span className="font-semibold text-slate-400">Matchup</span>
 
-              {isFinished ? (
+              {game.away_score !== null ? (
                 <span className="font-mono text-sm font-bold text-slate-200">
                   Final: {game.away_team} {game.away_score} - {game.home_score}{" "}
                   {game.home_team}
                 </span>
+              ) : isLocked ? (
+                <span className="text-rose-400 font-bold">LOCKED</span>
               ) : (
                 <span className="text-slate-500">Upcoming</span>
               )}
@@ -199,7 +221,7 @@ export default function PicksList({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Away Team Button */}
               <button
-                disabled={isFinished}
+                disabled={isLocked}
                 onClick={() => handleSelectTeam(game.id, game.away_team)}
                 className={`flex items-center justify-between rounded-lg border p-4 text-left transition-all ${getButtonStyle(
                   game,
@@ -228,7 +250,7 @@ export default function PicksList({
 
               {/* Home Team Button */}
               <button
-                disabled={isFinished}
+                disabled={isLocked}
                 onClick={() => handleSelectTeam(game.id, game.home_team)}
                 className={`flex items-center justify-between rounded-lg border p-4 text-left transition-all ${getButtonStyle(
                   game,
@@ -259,13 +281,15 @@ export default function PicksList({
             {/* Lock Designation / Lock Toggle Section */}
             {userPick?.picked_team && (
               <div className="mt-4 flex items-center justify-end">
-                {isFinished ? (
+                {isLocked ? (
+                  // Display static badge if this game was picked as the Lock
                   userPick.is_lock && (
                     <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400">
                       ⭐ Lock of the Week
                     </span>
                   )
                 ) : (
+                  // Interactive button *before* the game locks
                   <button
                     onClick={() => handleToggleLock(game.id)}
                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${

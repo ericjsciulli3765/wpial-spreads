@@ -31,6 +31,12 @@ export default function PicksList({
   const [currentTime, setCurrentTime] = useState(new Date()); // Track current time
   const supabase = createClient();
 
+  // Helper to parse date strings reliably across browsers
+  const parseGameTime = (gameTimeStr?: string) => {
+    if (!gameTimeStr) return null;
+    return new Date(gameTimeStr.replace(" ", "T"));
+  };
+
   useEffect(() => {
     async function loadPicks() {
       const { data, error } = await supabase
@@ -84,8 +90,8 @@ export default function PicksList({
     const winner = getSpreadWinner(game);
 
     // Game is finished/locked
-    const kickoff = game.game_time ? new Date(game.game_time) : null;
-    const isPastKickoff = kickoff && currentTime >= kickoff;
+    const kickoff = parseGameTime(game.game_time);
+    const isPastKickoff = kickoff ? currentTime >= kickoff : false;
 
     if (!winner && !isPastKickoff) {
       if (isPicked) {
@@ -114,8 +120,8 @@ export default function PicksList({
 
   const handleSelectTeam = async (gameId: number | string, team: string) => {
     const game = games.find((g) => String(g.id) === String(gameId));
-    const kickoff = game?.game_time ? new Date(game.game_time) : null;
-    const isPastKickoff = kickoff && currentTime >= kickoff;
+    const kickoff = parseGameTime(game?.game_time);
+    const isPastKickoff = kickoff ? currentTime >= kickoff : false;
 
     // Prevent changing picks after kickoff
     if (isPastKickoff || game?.away_score !== null) return;
@@ -144,8 +150,8 @@ export default function PicksList({
     if (!currentPick?.picked_team) return;
 
     const game = games.find((g) => String(g.id) === String(gameId));
-    const kickoff = game?.game_time ? new Date(game.game_time) : null;
-    const isPastKickoff = kickoff && currentTime >= kickoff;
+    const kickoff = parseGameTime(game?.game_time);
+    const isPastKickoff = kickoff ? currentTime >= kickoff : false;
 
     // Prevent changing lock state after kickoff
     if (isPastKickoff || game?.away_score !== null) return;
@@ -189,8 +195,8 @@ export default function PicksList({
       {games.map((game) => {
         const userPick = picks[String(game.id)];
         const winner = getSpreadWinner(game);
-        const kickoff = game.game_time ? new Date(game.game_time) : null;
-        const isPastKickoff = kickoff && currentTime >= kickoff;
+        const kickoff = parseGameTime(game.game_time);
+        const isPastKickoff = kickoff ? currentTime >= kickoff : false;
         const isLocked = isPastKickoff || game.away_score !== null;
 
         const awaySpreadStr = getTeamSpread(game, false);
@@ -201,7 +207,7 @@ export default function PicksList({
             key={game.id}
             className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-md"
           >
-            {/* Header: Scores or Game Status */}
+            {/* Header: Scores, Locked Status, or Formatted Game Date & Time */}
             <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
               <span className="font-semibold text-slate-400">Matchup</span>
 
@@ -213,7 +219,17 @@ export default function PicksList({
               ) : isLocked ? (
                 <span className="text-rose-400 font-bold">LOCKED</span>
               ) : (
-                <span className="text-slate-500">Upcoming</span>
+                <span className="text-slate-400 font-medium normal-case">
+                  {kickoff
+                    ? kickoff.toLocaleString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })
+                    : "Upcoming"}
+                </span>
               )}
             </div>
 
@@ -289,7 +305,7 @@ export default function PicksList({
                     </span>
                   )
                 ) : (
-                  // Interactive button *before* the game locks
+                  // Interactive button before the game locks
                   <button
                     onClick={() => handleToggleLock(game.id)}
                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${

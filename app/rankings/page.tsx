@@ -419,13 +419,146 @@ const weeklyRankingsData: WeeklyRankingsData = {
       { rank: 30, team: 'Mapletown', record: '0-2', previousRank: '30' },
     ],
   },
+  'Week 4': {
+    '6A': [
+      { rank: 1, team: 'Pittsburgh Central Catholic', record: '3-0', previousRank: '1' },
+      { rank: 2, team: 'Norwin', record: '2-1', previousRank: '3' },
+      { rank: 3, team: 'Seneca Valley', record: '2-0', previousRank: '4' },
+      { rank: 4, team: 'North Allegheny', record: '0-3', previousRank: '2' },
+      { rank: 5, team: 'Canon-Mac', record: '1-2', previousRank: '5' },
+      { rank: 6, team: 'Hempfield', record: '1-2', previousRank: '6' },
+      { rank: 7, team: 'Mt. Lebanon', record: '0-2', previousRank: '7' },
+    ],
+    '5A': [
+      { rank: 1, team: 'Pine-Richland', record: '2-1', previousRank: '1' },
+      { rank: 2, team: 'Upper St. Clair', record: '3-0', previousRank: '2' },
+      { rank: 3, team: 'Penn-Trafford', record: '3-0', previousRank: '3' },
+      { rank: 4, team: 'North Hills', record: '2-0', previousRank: '4' },
+      { rank: 5, team: 'Thomas Jefferson', record: '2-0', previousRank: '6' },
+      { rank: 6, team: 'Bethel Park', record: '1-1', previousRank: '5' },
+      { rank: 7, team: 'Peters Township', record: '1-2', previousRank: '9' },
+      { rank: 8, team: 'Moon', record: '1-1', previousRank: '8' },
+      { rank: 9, team: 'West Allegheny', record: '2-1', previousRank: '13' },
+      { rank: 10, team: 'Woodland Hills', record: '2-1', previousRank: '12' },
+      { rank: 11, team: 'Plum', record: '3-0', previousRank: '11' },
+      { rank: 12, team: 'Trinity', record: '2-1', previousRank: '7' },
+      { rank: 13, team: 'Gateway', record: '2-1', previousRank: '10' },
+      { rank: 14, team: 'Penn Hills', record: '1-2', previousRank: '14' },
+      { rank: 15, team: 'Latrobe', record: '2-1', previousRank: '15' },
+      { rank: 16, team: 'Armstrong', record: '2-1', previousRank: '17' },
+      { rank: 17, team: 'Franklin Regional', record: '0-3', previousRank: '16' },
+      { rank: 18, team: 'Fox Chapel', record: '1-2', previousRank: '18' },
+      { rank: 19, team: 'Connellsville', record: '2-1', previousRank: '19' },
+    ],
+    '4A': [
+      { rank: 1, team: 'South Fayette', record: '3-0', previousRank: '2' },
+      { rank: 2, team: 'Montour', record: '2-1', previousRank: '1' },
+      { rank: 3, team: 'McKeesport', record: '1-2', previousRank: '3' },
+      { rank: 4, team: 'Central Valley', record: '2-1', previousRank: '5' },
+      { rank: 5, team: 'Shaler', record: '1-2', previousRank: '4' },
+      { rank: 6, team: 'New Castle', record: '1-2', previousRank: '6' },
+      { rank: 7, team: 'Chartiers Valley', record: '1-2', previousRank: '9' },
+      { rank: 8, team: 'Mars', record: '0-3', previousRank: '7' },
+      { rank: 9, team: 'Hampton', record: '2-1', previousRank: '10' },
+      { rank: 10, team: 'Kiski Area', record: '0-3', previousRank: '8' },
+      { rank: 11, team: 'Blackhawk', record: '3-0', previousRank: '12' },
+      { rank: 12, team: 'Ringgold', record: '1-2', previousRank: '11' },
+      { rank: 13, team: 'Indiana', record: '1-2', previousRank: '13' },
+      { rank: 14, team: 'Albert Gallatin', record: '1-2', previousRank: '14' },
+      { rank: 15, team: 'Uniontown', record: '2-1', previousRank: '15' },
+      { rank: 16, team: 'Laurel Highlands', record: '0-3', previousRank: '16' },
+    ],
+    '3A': [
+      { rank: 1, team: 'Propel Braddock', record: '2-1', previousRank: '4' },
+      { rank: 2, team: 'Hopewell', record: '2-1', previousRank: '1' },
+      { rank: 3, team: 'Avonworth', record: '2-1', previousRank: '3' },
+      { rank: 4, team: 'Belle Vernon', record: '2-1', previousRank: '5' },
+      { rank: 5, team: 'Aliquippa', record: '1-1', previousRank: '2' },
+      { rank: 6, team: 'West Mifflin', record: '1-2', previousRank: '6' },
+      { rank: 7, team: 'Elizabeth Forward', record: '3-0', previousRank: '8' },
+      { rank: 8, team: 'Beaver', record: '1-2', previousRank: '11' },
+      { rank: 9, team: 'Highlands', record: '2-1', previousRank: '7' },
+      { rank: 10, team: 'North Catholic', record: '0-3', previousRank: '9' },
+      { rank: 11, team: 'Freeport', record: '3-0', previousRank: '10' },
+      { rank: 12, team: 'Derry', record: '2-1', previousRank: '12' },
+      { rank: 13, team: 'Burrell', record: '3-0', previousRank: '14' },
+      { rank: 14, team: 'Mt. Pleasant', record: '2-1', previousRank: '13' },
+      { rank: 15, team: 'Ambridge', record: '1-2', previousRank: '15' },
+      { rank: 16, team: 'South Park', record: '0-3', previousRank: '16' },
+      { rank: 17, team: 'Deer Lakes', record: '0-3', previousRank: '17' },
+      { rank: 18, team: 'Shady Side Academy', record: '2-1', previousRank: '18' },
+      { rank: 19, team: 'Greensburg Salem', record: '0-3', previousRank: '21' },
+      { rank: 20, team: 'Waynesburg Central', record: '3-0', previousRank: '22' },
+      { rank: 21, team: 'Knoch', record: '3-0', previousRank: '23' },
+      { rank: 22, team: 'Southmoreland', record: '1-2', previousRank: '24' },
+      { rank: 23, team: 'OLSH', record: '0-3', previousRank: '19' },
+      { rank: 24, team: 'Valley', record: '2-1', previousRank: '25' },
+      { rank: 25, team: 'Ellwood City', record: '0-3', previousRank: '20' },
+      { rank: 26, team: 'Yough', record: '0-3', previousRank: '26' },
+    ],
+    '2A': [
+      { rank: 1, team: 'Seton LaSalle', record: '3-0', previousRank: '1' },
+      { rank: 2, team: 'Bishop Canevin', record: '3-0', previousRank: '2' },
+      { rank: 3, team: 'Steel Valley', record: '2-1', previousRank: '3' },
+      { rank: 4, team: 'McGuffey', record: '2-1', previousRank: '4' },
+      { rank: 5, team: 'South Allegheny', record: '1-2', previousRank: '5' },
+      { rank: 6, team: 'Apollo Ridge', record: '2-1', previousRank: '6' },
+      { rank: 7, team: 'Neshannock', record: '2-1', previousRank: '7' },
+      { rank: 8, team: 'Riverside', record: '3-0', previousRank: '9' },
+      { rank: 9, team: 'Western Beaver', record: '0-3', previousRank: '8' },
+      { rank: 10, team: 'Beaver Falls', record: '1-1', previousRank: '12' },
+      { rank: 11, team: 'Freedom', record: '3-0', previousRank: '13' },
+      { rank: 12, team: 'Ligonier Valley', record: '3-0', previousRank: '15' },
+      { rank: 13, team: 'Keystone Oaks', record: '0-3', previousRank: '11' },
+      { rank: 14, team: 'Mohawk', record: '0-3', previousRank: '10' },
+      { rank: 15, team: 'Quaker Valley', record: '0-3', previousRank: '14' },
+      { rank: 16, team: 'Chartiers-Houston', record: '1-2', previousRank: '17' },
+      { rank: 17, team: 'East Allegheny', record: '2-1', previousRank: '16' },
+      { rank: 18, team: 'New Brighton', record: '1-2', previousRank: '18' },
+      { rank: 19, team: 'Charleroi', record: '2-1', previousRank: '19' },
+      { rank: 20, team: 'Carlynton', record: '2-1', previousRank: '20' },
+      { rank: 21, team: 'Brownsville', record: '0-3', previousRank: '21' },
+    ],
+    '1A': [
+      { rank: 1, team: 'Washington', record: '3-0', previousRank: '1' },
+      { rank: 2, team: 'Clairton', record: '1-2', previousRank: '2' },
+      { rank: 3, team: 'Fort Cherry', record: '3-0', previousRank: '3' },
+      { rank: 4, team: 'Jeannette', record: '2-1', previousRank: '5' },
+      { rank: 5, team: 'Laurel', record: '1-2', previousRank: '4' },
+      { rank: 6, team: 'Greensburg Central Catholic', record: '2-1', previousRank: '6' },
+      { rank: 7, team: 'Shenango', record: '2-0', previousRank: '10' },
+      { rank: 8, team: 'Monessen', record: '3-0', previousRank: '11' },
+      { rank: 9, team: 'California', record: '1-2', previousRank: '7' },
+      { rank: 10, team: 'South Side Beaver', record: '0-3', previousRank: '8' },
+      { rank: 11, team: 'Beth-Center', record: '3-0', previousRank: '13' },
+      { rank: 12, team: 'Cornell', record: '2-1', previousRank: '9' },
+      { rank: 13, team: 'Burgettstown', record: '3-0', previousRank: '14' },
+      { rank: 14, team: 'Brentwood', record: '1-2', previousRank: '18' },
+      { rank: 15, team: 'Northgate', record: '2-1', previousRank: '12' },
+      { rank: 16, team: 'Frazier', record: '1-2', previousRank: '16' },
+      { rank: 17, team: 'Carmichaels', record: '1-2', previousRank: '15' },
+      { rank: 18, team: 'Bentworth', record: '2-1', previousRank: '20' },
+      { rank: 19, team: 'Leechburg', record: '0-3', previousRank: '17' },
+      { rank: 20, team: 'Serra Catholic', record: '1-2', previousRank: '19' },
+      { rank: 21, team: 'Union', record: '1-2', previousRank: '26' },
+      { rank: 22, team: 'Sto-Rox', record: '2-1', previousRank: '21' },
+      { rank: 23, team: 'Avella', record: '1-2', previousRank: '22' },
+      { rank: 24, team: 'Jefferson-Morgan', record: '0-3', previousRank: '23' },
+      { rank: 25, team: 'Rochester', record: '0-3', previousRank: '24' },
+      { rank: 26, team: 'Riverview', record: '0-3', previousRank: '25' },
+      { rank: 27, team: 'West Greene', record: '1-2', previousRank: '27' },
+      { rank: 28, team: 'Springdale', record: '1-1', previousRank: '28' },
+      { rank: 29, team: 'Summit Academy', record: '0-3', previousRank: '29' },
+      { rank: 30, team: 'Mapletown', record: '0-3', previousRank: '30' },
+    ],
+  },
 };
 
 const classifications = ['6A', '5A', '4A', '3A', '2A', '1A'];
 const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
 
 export default function RankingsPage() {
-  const [selectedWeek, setSelectedWeek] = useState('Week 3');
+  const [selectedWeek, setSelectedWeek] = useState('Week 4');
   const [selectedClass, setSelectedClass] = useState('6A');
 
   const currentRankings =
@@ -532,13 +665,8 @@ export default function RankingsPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-10 text-center">
-            <h3 className="text-xl font-semibold">
-              No Rankings Posted Yet
-            </h3>
-            <p className="mt-2 text-slate-400">
-              Rankings for {selectedClass} ({selectedWeek}) will be released soon.
-            </p>
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 text-center text-slate-400">
+            No rankings available for this week yet.
           </div>
         )}
       </section>

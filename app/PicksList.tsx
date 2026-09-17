@@ -28,7 +28,7 @@ export default function PicksList({
 }) {
   const [picks, setPicks] = useState<Record<string, PickItem>>({});
   const [loading, setLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date()); // Track current time
+  const [currentTime, setCurrentTime] = useState(new Date());
   const supabase = createClient();
 
   // Helper to parse date strings reliably across browsers
@@ -158,9 +158,14 @@ export default function PicksList({
 
     const newLockState = !currentPick.is_lock;
 
+    // Get array of game IDs currently displayed on this week's page
+    const currentGameIds = games.map((g) => g.id);
+
+    // Update local state ONLY for games in the current list
     const updatedPicks = { ...picks };
-    Object.keys(updatedPicks).forEach((key) => {
-      if (updatedPicks[key].is_lock) {
+    currentGameIds.forEach((id) => {
+      const key = String(id);
+      if (updatedPicks[key]) {
         updatedPicks[key] = { ...updatedPicks[key], is_lock: false };
       }
     });
@@ -172,11 +177,14 @@ export default function PicksList({
 
     setPicks(updatedPicks);
 
+    // Clear locks ONLY for the games associated with this active list
     await supabase
       .from("picks")
       .update({ is_lock: false })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .in("game_id", currentGameIds);
 
+    // Set the newly selected lock if toggled ON
     if (newLockState) {
       await supabase
         .from("picks")
@@ -298,14 +306,12 @@ export default function PicksList({
             {userPick?.picked_team && (
               <div className="mt-4 flex items-center justify-end">
                 {isLocked ? (
-                  // Display static badge if this game was picked as the Lock
                   userPick.is_lock && (
                     <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400">
                       ⭐ Lock of the Week
                     </span>
                   )
                 ) : (
-                  // Interactive button before the game locks
                   <button
                     onClick={() => handleToggleLock(game.id)}
                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition ${

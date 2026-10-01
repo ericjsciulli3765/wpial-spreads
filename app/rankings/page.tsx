@@ -821,7 +821,7 @@ const weeklyRankingsData: WeeklyRankingsData = {
 };
 
 const classifications = ['6A', '5A', '4A', '3A', '2A', '1A'];
-const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week10'];
 
 export default function RankingsPage() {
   const [selectedWeek, setSelectedWeek] = useState('Week 4');

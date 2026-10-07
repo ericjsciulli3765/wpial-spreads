@@ -53,47 +53,66 @@ function LeaderboardContent() {
     async function fetchData() {
       setLoading(true);
 
-      const [profilesRes, gamesRes, picksRes, weeksRes] = await Promise.all([
+      // 1. Fetch weeks, profiles, and games first
+      const [profilesRes, gamesRes, weeksRes] = await Promise.all([
         supabase.from("profiles").select("id, display_name, is_hidden"),
         supabase
           .from("games")
           .select("id, week, away_team, home_team, spread, away_score, home_score"),
-        supabase
-          .from("picks")
-          .select("user_id, game_id, picked_team, is_lock")
-          .range(0, 5000),
         supabase.from("weeks").select("*").order("week_number", { ascending: true }),
       ]);
 
-      setProfiles((profilesRes.data as ProfileItem[]) || []);
-      setGames((gamesRes.data as GameItem[]) || []);
-      setPicks((picksRes.data as PickItem[]) || []);
+      const fetchedGames = (gamesRes.data as GameItem[]) || [];
+      const fetchedProfiles = (profilesRes.data as ProfileItem[]) || [];
 
-      if (weeksRes.data && weeksRes.data.length > 0) {
-        setWeeks(weeksRes.data);
-      } else {
+      setProfiles(fetchedProfiles);
+      setGames(fetchedGames);
+
+      let loadedWeeks = weeksRes.data || [];
+      if (loadedWeeks.length === 0) {
         const uniqueWeeks = Array.from(
           new Set(
-            (gamesRes.data || [])
+            fetchedGames
               .map((g) => parseInt(String(g.week), 10))
               .filter((w) => !isNaN(w))
           )
         ).sort((a, b) => a - b);
 
-        setWeeks(
-          uniqueWeeks.map((w) => ({
-            id: String(w),
-            week_number: w,
-            name: `Week ${w}`,
-          }))
-        );
+        loadedWeeks = uniqueWeeks.map((w) => ({
+          id: String(w),
+          week_number: w,
+          name: `Week ${w}`,
+        }));
+      }
+      setWeeks(loadedWeeks);
+
+      // 2. Determine active week number
+      const selectedWeekNum = activeWeekParam
+        ? parseInt(activeWeekParam, 10)
+        : loadedWeeks[0]?.week_number ?? 6;
+
+      // 3. Find all game IDs for this specific week
+      const weekGameIds = fetchedGames
+        .filter((g) => parseInt(String(g.week), 10) === selectedWeekNum)
+        .map((g) => g.id);
+
+      // 4. Fetch ONLY picks for those specific game IDs
+      if (weekGameIds.length > 0) {
+        const { data: weekPicks } = await supabase
+          .from("picks")
+          .select("user_id, game_id, picked_team, is_lock")
+          .in("game_id", weekGameIds);
+
+        setPicks((weekPicks as PickItem[]) || []);
+      } else {
+        setPicks([]);
       }
 
       setLoading(false);
     }
 
     fetchData();
-  }, []);
+  }, [activeWeekParam]);
 
   if (loading) {
     return (

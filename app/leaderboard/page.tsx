@@ -53,7 +53,7 @@ function LeaderboardContent() {
     async function fetchData() {
       setLoading(true);
 
-      // 1. Fetch weeks, profiles, and games first
+      // 1. Fetch weeks, profiles, and games
       const [profilesRes, gamesRes, weeksRes] = await Promise.all([
         supabase.from("profiles").select("id, display_name, is_hidden"),
         supabase
@@ -86,28 +86,33 @@ function LeaderboardContent() {
       }
       setWeeks(loadedWeeks);
 
-      // 2. Determine active week number
-      const selectedWeekNum = activeWeekParam
-        ? parseInt(activeWeekParam, 10)
-        : loadedWeeks[0]?.week_number ?? 6;
+      // 2. Check if we are querying "all" weeks or a single week
+      const isAllWeeks = !activeWeekParam || activeWeekParam === "all";
 
-      // 3. Find all game IDs for this specific week
-      const weekGameIds = fetchedGames
-        .filter((g) => parseInt(String(g.week), 10) === selectedWeekNum)
-        .map((g) => g.id);
+      let pickQuery = supabase
+        .from("picks")
+        .select("user_id, game_id, picked_team, is_lock");
 
-      // 4. Fetch ONLY picks for those specific game IDs
-      if (weekGameIds.length > 0) {
-        const { data: weekPicks } = await supabase
-          .from("picks")
-          .select("user_id, game_id, picked_team, is_lock")
-          .in("game_id", weekGameIds);
+      if (!isAllWeeks) {
+        const selectedWeekNum = parseInt(activeWeekParam, 10);
+        const weekGameIds = fetchedGames
+          .filter((g) => parseInt(String(g.week), 10) === selectedWeekNum)
+          .map((g) => g.id);
 
-        setPicks((weekPicks as PickItem[]) || []);
+        if (weekGameIds.length > 0) {
+          pickQuery = pickQuery.in("game_id", weekGameIds);
+        } else {
+          setPicks([]);
+          setLoading(false);
+          return;
+        }
       } else {
-        setPicks([]);
+        // Fetch up to 5000 rows when grabbing overall season picks
+        pickQuery = pickQuery.range(0, 5000);
       }
 
+      const { data: fetchedPicks } = await pickQuery;
+      setPicks((fetchedPicks as PickItem[]) || []);
       setLoading(false);
     }
 
@@ -122,16 +127,16 @@ function LeaderboardContent() {
     );
   }
 
-  const selectedWeekNum = activeWeekParam
-    ? parseInt(activeWeekParam, 10)
-    : weeks[0]?.week_number ?? 6;
+  const isAllWeeks = !activeWeekParam || activeWeekParam === "all";
+  const selectedWeekNum = activeWeekParam ? parseInt(activeWeekParam, 10) : null;
 
-  const currentWeekGames = games.filter(
-    (g) => parseInt(String(g.week), 10) === selectedWeekNum
-  );
+  // Filter relevant games based on selected view
+  const activeGames = isAllWeeks
+    ? games
+    : games.filter((g) => parseInt(String(g.week), 10) === selectedWeekNum);
 
   const gameMap = new Map<string, GameItem>();
-  currentWeekGames.forEach((g) => {
+  activeGames.forEach((g) => {
     gameMap.set(String(g.id), g);
   });
 
@@ -197,7 +202,12 @@ function LeaderboardContent() {
     <div className="min-h-screen bg-slate-950 p-6 text-white">
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Leaderboard</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Leaderboard</h1>
+            <p className="text-sm text-slate-400 mt-1">
+              {isAllWeeks ? "Overall Season Standings" : `Week ${selectedWeekNum} Standings`}
+            </p>
+          </div>
           <WeekSelector weeks={weeks} />
         </div>
 

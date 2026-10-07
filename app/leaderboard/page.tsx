@@ -1,47 +1,64 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import WeekSelector from "./WeekSelector";
 
-type PickItem = {
-  picked_team: string;
-  is_lock?: boolean;
-  game_id: number | string;
-  user_id: string;
+type ProfileItem = {
+  id: string;
+  display_name: string;
+  is_hidden?: boolean;
 };
 
 type GameItem = {
-  id: number | string;
-  week: number | string;
+  id: string | number;
+  week: string | number;
   away_team: string;
   home_team: string;
-  spread: number | null;
+  spread: number;
   away_score: number | null;
   home_score: number | null;
 };
 
-type ProfileItem = {
-  id: string;
-  display_name: string | null;
-  is_hidden?: boolean;
+type PickItem = {
+  user_id: string;
+  game_id: string | number;
+  picked_team: string;
+  is_lock?: boolean;
 };
 
-export default function LeaderboardPage() {
+type StandingsRow = {
+  profile_id: string;
+  display_name: string;
+  wins: number;
+  losses: number;
+  pushes: number;
+  total_picks: number;
+};
+
+export default function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: { week?: string };
+}) {
+  const supabase = createClient();
+  const searchParamsHook = useSearchParams();
+
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
   const [games, setGames] = useState<GameItem[]>([]);
   const [picks, setPicks] = useState<PickItem[]>([]);
-  const [weeks, setWeeks] = useState<number[]>([]);
-  const [selectedWeek, setSelectedWeek] = useState<string>("ALL");
+  const [weeks, setWeeks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
 
-  const supabase = createClient();
+  // Read selected week from URL query param
+  const activeWeekParam = searchParamsHook.get("week") || searchParams?.week;
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
 
-      const [profilesRes, gamesRes, picksRes] = await Promise.all([
+      const [profilesRes, gamesRes, picksRes, weeksRes] = await Promise.all([
         supabase.from("profiles").select("id, display_name, is_hidden"),
         supabase
           .from("games")
@@ -49,34 +66,35 @@ export default function LeaderboardPage() {
         supabase
           .from("picks")
           .select("user_id, game_id, picked_team, is_lock")
-          .range(0, 5000), // Bypasses Supabase default 1,000 row query cap
+          .range(0, 5000),
+        supabase.from("weeks").select("*").order("week_number", { ascending: true }),
       ]);
 
-      if (profilesRes.error || gamesRes.error || picksRes.error) {
-        setErrorMsg(
-          profilesRes.error?.message ||
-            gamesRes.error?.message ||
-            picksRes.error?.message ||
-            "Error loading leaderboard data."
-        );
-        setLoading(false);
-        return;
-      }
-
-      const fetchedGames = (gamesRes.data as GameItem[]) || [];
       setProfiles((profilesRes.data as ProfileItem[]) || []);
-      setGames(fetchedGames);
+      setGames((gamesRes.data as GameItem[]) || []);
       setPicks((picksRes.data as PickItem[]) || []);
 
-      const uniqueWeeks = Array.from(
-        new Set(
-          fetchedGames
-            .map((g) => parseInt(String(g.week), 10))
-            .filter((w) => !isNaN(w))
-        )
-      ).sort((a, b) => a - b);
+      if (weeksRes.data && weeksRes.data.length > 0) {
+        setWeeks(weeksRes.data);
+      } else {
+        // Fallback week generation if weeks table is empty
+        const uniqueWeeks = Array.from(
+          new Set(
+            (gamesRes.data || [])
+              .map((g) => parseInt(String(g.week), 10))
+              .filter((w) => !isNaN(w))
+          )
+        ).sort((a, b) => a - b);
 
-      setWeeks(uniqueWeeks);
+        setWeeks(
+          uniqueWeeks.map((w) => ({
+            id: String(w),
+            week_number: w,
+            name: `Week ${w}`,
+          }))
+        );
+      }
+
       setLoading(false);
     }
 
@@ -85,178 +103,134 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 p-10 text-white">
-        <p className="font-medium text-slate-400">Loading standings...</p>
-      </main>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <p className="text-lg">Loading leaderboard...</p>
+      </div>
     );
   }
 
-  if (errorMsg) {
-    return (
-      <main className="min-h-screen bg-slate-950 p-10 text-white">
-        <h1 className="text-2xl font-bold">Leaderboard Error</h1>
-        <p className="mt-4 text-red-400">{errorMsg}</p>
-      </main>
-    );
-  }
+  // Determine current active week number
+  const selectedWeekNum = activeWeekParam
+    ? parseInt(activeWeekParam, 10)
+    : weeks[0]?.week_number ?? 6;
 
-  // Filter games based on dropdown selection
-  const filteredGames =
-    selectedWeek === "ALL"
-      ? games
-      : games.filter(
-          (g) => parseInt(String(g.week), 10) === parseInt(selectedWeek, 10)
-        );
+  // Filter games for current week (ensuring string vs number safety)
+  const currentWeekGames = games.filter(
+    (g) => parseInt(String(g.week), 10) === selectedWeekNum
+  );
 
-  // Pre-calculate spread winners using explicit string keys
-  const gameWinners: Record<string, string | "PUSH" | null> = {};
-
-  filteredGames.forEach((game) => {
-    const gameKey = String(game.id).trim();
-
-    if (game.away_score !== null && game.home_score !== null) {
-      const spread = game.spread ?? 0;
-      const homeTotal = Number(game.home_score) + spread;
-      const awayTotal = Number(game.away_score);
-
-      if (homeTotal > awayTotal) {
-        gameWinners[gameKey] = game.home_team;
-      } else if (homeTotal < awayTotal) {
-        gameWinners[gameKey] = game.away_team;
-      } else {
-        gameWinners[gameKey] = "PUSH";
-      }
-    } else {
-      gameWinners[gameKey] = null;
-    }
+  // Create a fast map of game_id -> GameItem
+  const gameMap = new Map<string, GameItem>();
+  currentWeekGames.forEach((g) => {
+    gameMap.set(String(g.id), g);
   });
 
-  const validGameIds = new Set(filteredGames.map((g) => String(g.id).trim()));
-
-  const standings = profiles
+  // Calculate Standings
+  const standings: StandingsRow[] = profiles
     .filter((p) => !p.is_hidden)
     .map((profile) => {
-      const profileIdNormalized = String(profile.id).trim().toLowerCase();
-
-      // Get user picks ONLY for active week games
-      const userPicks = picks.filter((pk) => {
-        const pickUserId = String(pk.user_id).trim().toLowerCase();
-        const pickGameId = String(pk.game_id).trim();
-        return pickUserId === profileIdNormalized && validGameIds.has(pickGameId);
-      });
-
       let wins = 0;
       let losses = 0;
+      let pushes = 0;
+      let total_picks = 0;
+
+      // Filter picks belonging to this user that match current week's games
+      const userPicks = picks.filter(
+        (p) =>
+          String(p.user_id) === String(profile.id) &&
+          gameMap.has(String(p.game_id))
+      );
+
+      total_picks = userPicks.length;
 
       userPicks.forEach((pick) => {
-        const pickGameKey = String(pick.game_id).trim();
-        const winner = gameWinners[pickGameKey];
+        const game = gameMap.get(String(pick.game_id));
+        if (!game || game.home_score === null || game.away_score === null) {
+          return; // Skip unplayed / un-scored games
+        }
 
-        if (winner && winner !== "PUSH") {
-          if (pick.picked_team?.trim() === winner.trim()) {
-            wins += pick.is_lock ? 2 : 1;
-          } else {
-            losses += 1;
-          }
+        const homeScore = Number(game.home_score);
+        const awayScore = Number(game.away_score);
+        const spread = Number(game.spread || 0);
+
+        // Home adjusted score against spread
+        const homeAdjusted = homeScore + spread;
+
+        let winningTeam = "";
+        if (homeAdjusted > awayScore) {
+          winningTeam = game.home_team;
+        } else if (awayScore > homeAdjusted) {
+          winningTeam = game.away_team;
+        }
+
+        if (!winningTeam) {
+          pushes++;
+        } else if (
+          pick.picked_team.trim().toLowerCase() ===
+          winningTeam.trim().toLowerCase()
+        ) {
+          wins++;
+        } else {
+          losses++;
         }
       });
 
-      const totalDecisions = wins + losses;
-      const winningPercentage =
-        totalDecisions > 0 ? (wins / totalDecisions) * 100 : 0;
-
       return {
-        user_id: profile.id,
-        display_name: profile.display_name || "Anonymous",
+        profile_id: profile.id,
+        display_name: profile.display_name,
         wins,
         losses,
-        winning_percentage: winningPercentage,
+        pushes,
+        total_picks,
       };
     })
-    .sort(
-      (a, b) => b.wins - a.wins || b.winning_percentage - a.winning_percentage
-    );
+    .sort((a, b) => b.wins - a.wins || a.losses - b.losses);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
-              2026 Season
-            </p>
-            <h2 className="mt-2 text-4xl font-bold">Leaderboard</h2>
-            <p className="mt-2 text-slate-400">
-              See how everyone is doing against the spread. (⭐ Lock wins count as 2)
-            </p>
-          </div>
-
-          {/* Week Filter Dropdown */}
-          <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 p-2">
-            <label
-              htmlFor="week-select"
-              className="pl-2 text-sm font-medium text-slate-400"
-            >
-              Filter:
-            </label>
-            <select
-              id="week-select"
-              value={selectedWeek}
-              onChange={(e) => setSelectedWeek(e.target.value)}
-              className="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="ALL">Season Total</option>
-              {weeks.map((weekNum) => (
-                <option key={weekNum} value={weekNum}>
-                  Week {weekNum}
-                </option>
-              ))}
-            </select>
-          </div>
+    <div className="min-h-screen bg-slate-950 p-6 text-white">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Leaderboard</h1>
+          <WeekSelector weeks={weeks} />
         </div>
 
-        {standings && standings.length > 0 ? (
-          <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-            <div className="grid grid-cols-12 border-b border-slate-800 px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              <div className="col-span-1">Rank</div>
-              <div className="col-span-5">Player</div>
-              <div className="col-span-2 text-center">Wins</div>
-              <div className="col-span-2 text-center">Losses</div>
-              <div className="col-span-2 text-right">Win %</div>
-            </div>
-
-            {standings.map((player, index) => (
-              <div
-                key={player.user_id}
-                className="grid grid-cols-12 items-center border-b border-slate-800 px-6 py-5 last:border-b-0"
-              >
-                <div className="col-span-1 text-lg font-bold text-slate-400">
-                  {index + 1}
-                </div>
-                <div className="col-span-5 font-semibold">
-                  {player.display_name}
-                </div>
-                <div className="col-span-2 text-center font-semibold text-emerald-400">
-                  {player.wins}
-                </div>
-                <div className="col-span-2 text-center text-slate-400">
-                  {player.losses}
-                </div>
-                <div className="col-span-2 text-right font-bold text-blue-400">
-                  {player.winning_percentage.toFixed(1)}%
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-10 text-center">
-            <h3 className="text-xl font-semibold">No standings yet</h3>
-            <p className="mt-2 text-slate-400">
-              The leaderboard will appear here once games are completed.
-            </p>
-          </div>
-        )}
-      </section>
-    </main>
+        <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+          <table className="w-full text-left">
+            <thead className="border-b border-slate-800 bg-slate-800/50 text-slate-400">
+              <tr>
+                <th className="p-4">Rank</th>
+                <th className="p-4">User</th>
+                <th className="p-4 text-center">W</th>
+                <th className="p-4 text-center">L</th>
+                <th className="p-4 text-center">P</th>
+                <th className="p-4 text-center">Picks evaluated</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {standings.map((row, idx) => (
+                <tr key={row.profile_id} className="hover:bg-slate-800/30">
+                  <td className="p-4 font-mono font-bold text-slate-500">
+                    #{idx + 1}
+                  </td>
+                  <td className="p-4 font-medium">{row.display_name}</td>
+                  <td className="p-4 text-center font-semibold text-emerald-400">
+                    {row.wins}
+                  </td>
+                  <td className="p-4 text-center font-semibold text-rose-400">
+                    {row.losses}
+                  </td>
+                  <td className="p-4 text-center font-semibold text-slate-400">
+                    {row.pushes}
+                  </td>
+                  <td className="p-4 text-center font-mono text-sm text-slate-400">
+                    {row.total_picks}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }

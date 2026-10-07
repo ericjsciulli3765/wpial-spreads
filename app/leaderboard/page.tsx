@@ -12,7 +12,7 @@ type PickItem = {
 
 type GameItem = {
   id: number | string;
-  week: number;
+  week: number | string;
   away_team: string;
   home_team: string;
   spread: number | null;
@@ -65,9 +65,12 @@ export default function LeaderboardPage() {
       setGames(fetchedGames);
       setPicks((picksRes.data as PickItem[]) || []);
 
-      // Extract unique week numbers dynamically and sort them
       const uniqueWeeks = Array.from(
-        new Set(fetchedGames.map((g) => g.week).filter(Boolean))
+        new Set(
+          fetchedGames
+            .map((g) => parseInt(String(g.week), 10))
+            .filter((w) => !isNaN(w))
+        )
       ).sort((a, b) => a - b);
 
       setWeeks(uniqueWeeks);
@@ -94,50 +97,60 @@ export default function LeaderboardPage() {
     );
   }
 
-  // Filter games based on dropdown selection
   const filteredGames =
     selectedWeek === "ALL"
       ? games
-      : games.filter((g) => Number(g.week) === Number(selectedWeek));
+      : games.filter(
+          (g) => parseInt(String(g.week), 10) === parseInt(selectedWeek, 10)
+        );
 
-  // Pre-calculate spread winners for filtered games
-  const gameWinners: Record<string | number, string | "PUSH" | null> = {};
+  // Map game winners using explicitly normalized String Game IDs as keys
+  const gameWinners: Record<string, string | "PUSH" | null> = {};
 
   filteredGames.forEach((game) => {
+    const gameKey = String(game.id).trim().toLowerCase();
+
     if (game.away_score !== null && game.home_score !== null) {
-      const spread = game.spread ?? 0;
-      const homeTotal = game.home_score + spread;
-      if (homeTotal > game.away_score) {
-        gameWinners[game.id] = game.home_team;
-      } else if (homeTotal < game.away_score) {
-        gameWinners[game.id] = game.away_team;
+      const spread = Number(game.spread) || 0;
+      const homeTotal = Number(game.home_score) + spread;
+      const awayTotal = Number(game.away_score);
+
+      if (homeTotal > awayTotal) {
+        gameWinners[gameKey] = game.home_team;
+      } else if (homeTotal < awayTotal) {
+        gameWinners[gameKey] = game.away_team;
       } else {
-        gameWinners[game.id] = "PUSH";
+        gameWinners[gameKey] = "PUSH";
       }
     } else {
-      gameWinners[game.id] = null;
+      gameWinners[gameKey] = null;
     }
   });
 
-  // Force String IDs in Set to guarantee exact type matching across string/number IDs
-  const validGameIds = new Set(filteredGames.map((g) => String(g.id)));
+  const validGameIds = new Set(
+    filteredGames.map((g) => String(g.id).trim().toLowerCase())
+  );
 
   const standings = profiles
     .filter((p) => !p.is_hidden)
     .map((profile) => {
-      // Get user picks ONLY for games in the active week filter
-      const userPicks = picks.filter(
-        (pk) =>
-          pk.user_id === profile.id && validGameIds.has(String(pk.game_id))
-      );
+      const profileIdNormalized = String(profile.id).trim().toLowerCase();
+
+      const userPicks = picks.filter((pk) => {
+        const pickUserId = String(pk.user_id).trim().toLowerCase();
+        const pickGameId = String(pk.game_id).trim().toLowerCase();
+        return pickUserId === profileIdNormalized && validGameIds.has(pickGameId);
+      });
 
       let wins = 0;
       let losses = 0;
 
       userPicks.forEach((pick) => {
-        const winner = gameWinners[pick.game_id];
+        const pickGameKey = String(pick.game_id).trim().toLowerCase();
+        const winner = gameWinners[pickGameKey];
+
         if (winner && winner !== "PUSH") {
-          if (pick.picked_team === winner) {
+          if (pick.picked_team?.trim() === winner.trim()) {
             wins += pick.is_lock ? 2 : 1;
           } else {
             losses += 1;
@@ -175,7 +188,6 @@ export default function LeaderboardPage() {
             </p>
           </div>
 
-          {/* Week Filter Dropdown */}
           <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 p-2">
             <label
               htmlFor="week-select"

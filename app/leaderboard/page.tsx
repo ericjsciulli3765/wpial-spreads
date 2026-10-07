@@ -86,33 +86,46 @@ function LeaderboardContent() {
       }
       setWeeks(loadedWeeks);
 
-      // 2. Check if we are querying "all" weeks or a single week
-      const isAllWeeks = !activeWeekParam || activeWeekParam === "all";
+      // 2. Determine target game IDs based on selection
+      const isAllWeeks = activeWeekParam === "all";
 
-      let pickQuery = supabase
-        .from("picks")
-        .select("user_id, game_id, picked_team, is_lock");
+      let targetGameIds: (string | number)[] = [];
 
-      if (!isAllWeeks) {
-        const selectedWeekNum = parseInt(activeWeekParam, 10);
-        const weekGameIds = fetchedGames
+      if (isAllWeeks) {
+        targetGameIds = fetchedGames.map((g) => g.id);
+      } else {
+        const selectedWeekNum = activeWeekParam
+          ? parseInt(activeWeekParam, 10)
+          : loadedWeeks[0]?.week_number ?? 6;
+
+        targetGameIds = fetchedGames
           .filter((g) => parseInt(String(g.week), 10) === selectedWeekNum)
           .map((g) => g.id);
-
-        if (weekGameIds.length > 0) {
-          pickQuery = pickQuery.in("game_id", weekGameIds);
-        } else {
-          setPicks([]);
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Fetch up to 5000 rows when grabbing overall season picks
-        pickQuery = pickQuery.range(0, 5000);
       }
 
-      const { data: fetchedPicks } = await pickQuery;
-      setPicks((fetchedPicks as PickItem[]) || []);
+      if (targetGameIds.length === 0) {
+        setPicks([]);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Batch fetch picks in chunks of 100 game_ids to bypass Supabase query size limits
+      const CHUNK_SIZE = 100;
+      let allPicks: PickItem[] = [];
+
+      for (let i = 0; i < targetGameIds.length; i += CHUNK_SIZE) {
+        const chunkIds = targetGameIds.slice(i, i + CHUNK_SIZE);
+        const { data: chunkPicks } = await supabase
+          .from("picks")
+          .select("user_id, game_id, picked_team, is_lock")
+          .in("game_id", chunkIds);
+
+        if (chunkPicks) {
+          allPicks = allPicks.concat(chunkPicks as PickItem[]);
+        }
+      }
+
+      setPicks(allPicks);
       setLoading(false);
     }
 
@@ -127,8 +140,10 @@ function LeaderboardContent() {
     );
   }
 
-  const isAllWeeks = !activeWeekParam || activeWeekParam === "all";
-  const selectedWeekNum = activeWeekParam ? parseInt(activeWeekParam, 10) : null;
+  const isAllWeeks = activeWeekParam === "all";
+  const selectedWeekNum = activeWeekParam && activeWeekParam !== "all"
+    ? parseInt(activeWeekParam, 10)
+    : weeks[0]?.week_number ?? 6;
 
   // Filter relevant games based on selected view
   const activeGames = isAllWeeks
@@ -204,8 +219,10 @@ function LeaderboardContent() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Leaderboard</h1>
-            <p className="text-sm text-slate-400 mt-1">
-              {isAllWeeks ? "Overall Season Standings" : `Week ${selectedWeekNum} Standings`}
+            <p className="mt-1 text-sm text-slate-400">
+              {isAllWeeks
+                ? "Overall Season Standings"
+                : `Week ${selectedWeekNum} Standings`}
             </p>
           </div>
           <WeekSelector weeks={weeks} />

@@ -46,7 +46,10 @@ export default function LeaderboardPage() {
         supabase
           .from("games")
           .select("id, week, away_team, home_team, spread, away_score, home_score"),
-        supabase.from("picks").select("user_id, game_id, picked_team, is_lock"),
+        supabase
+          .from("picks")
+          .select("user_id, game_id, picked_team, is_lock")
+          .range(0, 5000), // Bypasses Supabase default 1,000 row query cap
       ]);
 
       if (profilesRes.error || gamesRes.error || picksRes.error) {
@@ -65,7 +68,6 @@ export default function LeaderboardPage() {
       setGames(fetchedGames);
       setPicks((picksRes.data as PickItem[]) || []);
 
-      // Parse week numbers safely as integers
       const uniqueWeeks = Array.from(
         new Set(
           fetchedGames
@@ -110,7 +112,6 @@ export default function LeaderboardPage() {
   const gameWinners: Record<string, string | "PUSH" | null> = {};
 
   filteredGames.forEach((game) => {
-    // Force game.id to a clean string key
     const gameKey = String(game.id).trim();
 
     if (game.away_score !== null && game.home_score !== null) {
@@ -130,7 +131,6 @@ export default function LeaderboardPage() {
     }
   });
 
-  // Force String IDs in Set for exact matching
   const validGameIds = new Set(filteredGames.map((g) => String(g.id).trim()));
 
   const standings = profiles
@@ -138,7 +138,7 @@ export default function LeaderboardPage() {
     .map((profile) => {
       const profileIdNormalized = String(profile.id).trim().toLowerCase();
 
-      // Get user picks ONLY for games in active week
+      // Get user picks ONLY for active week games
       const userPicks = picks.filter((pk) => {
         const pickUserId = String(pk.user_id).trim().toLowerCase();
         const pickGameId = String(pk.game_id).trim();
@@ -149,7 +149,6 @@ export default function LeaderboardPage() {
       let losses = 0;
 
       userPicks.forEach((pick) => {
-        // Force pick.game_id to clean string key lookup
         const pickGameKey = String(pick.game_id).trim();
         const winner = gameWinners[pickGameKey];
 

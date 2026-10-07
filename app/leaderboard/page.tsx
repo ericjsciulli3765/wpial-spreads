@@ -34,6 +34,8 @@ type StandingsRow = {
   wins: number;
   losses: number;
   pushes: number;
+  lock_wins: number;
+  points: number;
   total_picks: number;
 };
 
@@ -53,7 +55,6 @@ function LeaderboardContent() {
     async function fetchData() {
       setLoading(true);
 
-      // 1. Fetch weeks, profiles, and games
       const [profilesRes, gamesRes, weeksRes] = await Promise.all([
         supabase.from("profiles").select("id, display_name, is_hidden"),
         supabase
@@ -86,7 +87,6 @@ function LeaderboardContent() {
       }
       setWeeks(loadedWeeks);
 
-      // 2. Determine target game IDs based on selection
       const isAllWeeks = activeWeekParam === "all";
 
       let targetGameIds: (string | number)[] = [];
@@ -109,7 +109,6 @@ function LeaderboardContent() {
         return;
       }
 
-      // 3. Batch fetch picks in chunks of 100 game_ids to bypass Supabase query size limits
       const CHUNK_SIZE = 100;
       let allPicks: PickItem[] = [];
 
@@ -141,11 +140,11 @@ function LeaderboardContent() {
   }
 
   const isAllWeeks = activeWeekParam === "all";
-  const selectedWeekNum = activeWeekParam && activeWeekParam !== "all"
-    ? parseInt(activeWeekParam, 10)
-    : weeks[0]?.week_number ?? 6;
+  const selectedWeekNum =
+    activeWeekParam && activeWeekParam !== "all"
+      ? parseInt(activeWeekParam, 10)
+      : weeks[0]?.week_number ?? 6;
 
-  // Filter relevant games based on selected view
   const activeGames = isAllWeeks
     ? games
     : games.filter((g) => parseInt(String(g.week), 10) === selectedWeekNum);
@@ -161,6 +160,7 @@ function LeaderboardContent() {
       let wins = 0;
       let losses = 0;
       let pushes = 0;
+      let lock_wins = 0;
       let total_picks = 0;
 
       const userPicks = picks.filter(
@@ -197,10 +197,16 @@ function LeaderboardContent() {
           winningTeam.trim().toLowerCase()
         ) {
           wins++;
+          if (pick.is_lock) {
+            lock_wins++;
+          }
         } else {
           losses++;
         }
       });
+
+      // Total points = Regular wins (1 pt each) + Lock bonus (1 extra pt)
+      const points = wins + lock_wins;
 
       return {
         profile_id: profile.id,
@@ -208,10 +214,12 @@ function LeaderboardContent() {
         wins,
         losses,
         pushes,
+        lock_wins,
+        points,
         total_picks,
       };
     })
-    .sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+    .sort((a, b) => b.points - a.points || b.wins - a.wins || a.losses - b.losses);
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-white">
@@ -234,10 +242,12 @@ function LeaderboardContent() {
               <tr>
                 <th className="p-4">Rank</th>
                 <th className="p-4">User</th>
+                <th className="p-4 text-center">PTS</th>
                 <th className="p-4 text-center">W</th>
                 <th className="p-4 text-center">L</th>
                 <th className="p-4 text-center">P</th>
-                <th className="p-4 text-center">Picks evaluated</th>
+                <th className="p-4 text-center">🔒 Wins</th>
+                <th className="p-4 text-center">Picks</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -247,6 +257,9 @@ function LeaderboardContent() {
                     #{idx + 1}
                   </td>
                   <td className="p-4 font-medium">{row.display_name}</td>
+                  <td className="p-4 text-center font-mono font-bold text-amber-400">
+                    {row.points}
+                  </td>
                   <td className="p-4 text-center font-semibold text-emerald-400">
                     {row.wins}
                   </td>
@@ -255,6 +268,9 @@ function LeaderboardContent() {
                   </td>
                   <td className="p-4 text-center font-semibold text-slate-400">
                     {row.pushes}
+                  </td>
+                  <td className="p-4 text-center font-semibold text-amber-300">
+                    {row.lock_wins}
                   </td>
                   <td className="p-4 text-center font-mono text-sm text-slate-400">
                     {row.total_picks}

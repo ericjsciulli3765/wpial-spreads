@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import WeekSelector from "./WeekSelector";
@@ -37,11 +37,7 @@ type StandingsRow = {
   total_picks: number;
 };
 
-export default function LeaderboardPage({
-  searchParams,
-}: {
-  searchParams: { week?: string };
-}) {
+function LeaderboardContent() {
   const supabase = createClient();
   const searchParamsHook = useSearchParams();
 
@@ -51,8 +47,7 @@ export default function LeaderboardPage({
   const [weeks, setWeeks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Read selected week from URL query param
-  const activeWeekParam = searchParamsHook.get("week") || searchParams?.week;
+  const activeWeekParam = searchParamsHook.get("week");
 
   useEffect(() => {
     async function fetchData() {
@@ -77,7 +72,6 @@ export default function LeaderboardPage({
       if (weeksRes.data && weeksRes.data.length > 0) {
         setWeeks(weeksRes.data);
       } else {
-        // Fallback week generation if weeks table is empty
         const uniqueWeeks = Array.from(
           new Set(
             (gamesRes.data || [])
@@ -109,23 +103,19 @@ export default function LeaderboardPage({
     );
   }
 
-  // Determine current active week number
   const selectedWeekNum = activeWeekParam
     ? parseInt(activeWeekParam, 10)
     : weeks[0]?.week_number ?? 6;
 
-  // Filter games for current week (ensuring string vs number safety)
   const currentWeekGames = games.filter(
     (g) => parseInt(String(g.week), 10) === selectedWeekNum
   );
 
-  // Create a fast map of game_id -> GameItem
   const gameMap = new Map<string, GameItem>();
   currentWeekGames.forEach((g) => {
     gameMap.set(String(g.id), g);
   });
 
-  // Calculate Standings
   const standings: StandingsRow[] = profiles
     .filter((p) => !p.is_hidden)
     .map((profile) => {
@@ -134,7 +124,6 @@ export default function LeaderboardPage({
       let pushes = 0;
       let total_picks = 0;
 
-      // Filter picks belonging to this user that match current week's games
       const userPicks = picks.filter(
         (p) =>
           String(p.user_id) === String(profile.id) &&
@@ -146,14 +135,13 @@ export default function LeaderboardPage({
       userPicks.forEach((pick) => {
         const game = gameMap.get(String(pick.game_id));
         if (!game || game.home_score === null || game.away_score === null) {
-          return; // Skip unplayed / un-scored games
+          return;
         }
 
         const homeScore = Number(game.home_score);
         const awayScore = Number(game.away_score);
         const spread = Number(game.spread || 0);
 
-        // Home adjusted score against spread
         const homeAdjusted = homeScore + spread;
 
         let winningTeam = "";
@@ -232,5 +220,19 @@ export default function LeaderboardPage({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LeaderboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+          <p className="text-lg">Loading leaderboard...</p>
+        </div>
+      }
+    >
+      <LeaderboardContent />
+    </Suspense>
   );
 }

@@ -13,12 +13,13 @@ export default function WeekSelector({ weeks }: { weeks: Week[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentWeek = searchParams.get("week") ?? weeks[0]?.id;
+  // Use week_number instead of week.id for URL parameter matching
+  const currentWeek =
+    searchParams.get("week") ?? String(weeks[0]?.week_number ?? "1");
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const weekId = event.target.value;
-
-    router.push(`/leaderboard?week=${weekId}`);
+    const weekNumber = event.target.value;
+    router.push(`/leaderboard?week=${weekNumber}`);
   }
 
   return (
@@ -28,7 +29,7 @@ export default function WeekSelector({ weeks }: { weeks: Week[] }) {
       className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-white"
     >
       {weeks.map((week) => (
-        <option key={week.id} value={week.id}>
+        <option key={week.id} value={String(week.week_number)}>
           {week.name}
         </option>
       ))}

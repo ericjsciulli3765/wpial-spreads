@@ -65,6 +65,7 @@ export default function LeaderboardPage() {
       setGames(fetchedGames);
       setPicks((picksRes.data as PickItem[]) || []);
 
+      // Parse week numbers safely as integers
       const uniqueWeeks = Array.from(
         new Set(
           fetchedGames
@@ -97,6 +98,7 @@ export default function LeaderboardPage() {
     );
   }
 
+  // Filter games based on dropdown selection
   const filteredGames =
     selectedWeek === "ALL"
       ? games
@@ -104,14 +106,15 @@ export default function LeaderboardPage() {
           (g) => parseInt(String(g.week), 10) === parseInt(selectedWeek, 10)
         );
 
-  // Map game winners using explicitly normalized String Game IDs as keys
+  // Pre-calculate spread winners using explicit string keys
   const gameWinners: Record<string, string | "PUSH" | null> = {};
 
   filteredGames.forEach((game) => {
-    const gameKey = String(game.id).trim().toLowerCase();
+    // Force game.id to a clean string key
+    const gameKey = String(game.id).trim();
 
     if (game.away_score !== null && game.home_score !== null) {
-      const spread = Number(game.spread) || 0;
+      const spread = game.spread ?? 0;
       const homeTotal = Number(game.home_score) + spread;
       const awayTotal = Number(game.away_score);
 
@@ -127,18 +130,18 @@ export default function LeaderboardPage() {
     }
   });
 
-  const validGameIds = new Set(
-    filteredGames.map((g) => String(g.id).trim().toLowerCase())
-  );
+  // Force String IDs in Set for exact matching
+  const validGameIds = new Set(filteredGames.map((g) => String(g.id).trim()));
 
   const standings = profiles
     .filter((p) => !p.is_hidden)
     .map((profile) => {
       const profileIdNormalized = String(profile.id).trim().toLowerCase();
 
+      // Get user picks ONLY for games in active week
       const userPicks = picks.filter((pk) => {
         const pickUserId = String(pk.user_id).trim().toLowerCase();
-        const pickGameId = String(pk.game_id).trim().toLowerCase();
+        const pickGameId = String(pk.game_id).trim();
         return pickUserId === profileIdNormalized && validGameIds.has(pickGameId);
       });
 
@@ -146,7 +149,8 @@ export default function LeaderboardPage() {
       let losses = 0;
 
       userPicks.forEach((pick) => {
-        const pickGameKey = String(pick.game_id).trim().toLowerCase();
+        // Force pick.game_id to clean string key lookup
+        const pickGameKey = String(pick.game_id).trim();
         const winner = gameWinners[pickGameKey];
 
         if (winner && winner !== "PUSH") {
@@ -188,6 +192,7 @@ export default function LeaderboardPage() {
             </p>
           </div>
 
+          {/* Week Filter Dropdown */}
           <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 p-2">
             <label
               htmlFor="week-select"
